@@ -10,9 +10,18 @@ export default function ProfileModal({ profile, onClose, onChat, onAddFriend, on
                 onClick={e => e.stopPropagation()}>
                 {/* Avatar */}
                 <div className="flex flex-col items-center mb-5">
-                    <div className="w-20 h-20 rounded-full mb-3 flex items-center justify-center text-3xl font-bold"
-                        style={{ background: 'var(--gradient-primary)', color: 'white' }}>
-                        {profile.name?.[0]?.toUpperCase() || '?'}
+                    <div className="w-20 h-20 rounded-full mb-3 flex items-center justify-center overflow-hidden"
+                        style={{ background: 'var(--bg-secondary)' }}>
+                        <img
+                            src={profile.gender === 'female'
+                                ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${profile.name}&hairprobability=100&hair=long01,long02,long03,long04`
+                                : profile.gender === 'male'
+                                    ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${profile.name}&hairprobability=100&hair=short01,short02,short03`
+                                    : `https://api.dicebear.com/7.x/bottts/svg?seed=${profile.guestId}`
+                            }
+                            alt={profile.name}
+                            className="w-full h-full object-cover"
+                        />
                     </div>
                     <h3 className="font-display font-bold text-xl" style={{ color: 'var(--text-primary)' }}>
                         {profile.name || profile.guestId}

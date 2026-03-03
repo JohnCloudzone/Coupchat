@@ -193,9 +193,18 @@ export default function HomePage({ onNavigate, onViewProfile, onStartDM }) {
                                         className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors animate-slide-up"
                                         style={{ animationDelay: `${i * 0.03}s` }}>
                                         <button onClick={() => { setShowOnlinePanel(false); onViewProfile?.(u); }}
-                                            className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 hover:scale-110 transition-transform relative"
-                                            style={{ background: 'var(--gradient-primary)', color: 'white' }}>
-                                            {u.name?.[0]?.toUpperCase() || '?'}
+                                            className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-110 transition-transform relative"
+                                            style={{ background: 'var(--bg-secondary)' }}>
+                                            <img
+                                                src={u.gender === 'female'
+                                                    ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${u.name}&hairprobability=100&hair=long01,long02,long03,long04`
+                                                    : u.gender === 'male'
+                                                        ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${u.name}&hairprobability=100&hair=short01,short02,short03`
+                                                        : `https://api.dicebear.com/7.x/bottts/svg?seed=${u.guestId}`
+                                                }
+                                                alt={u.name}
+                                                className="w-full h-full object-cover"
+                                            />
                                             <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-[var(--bg-primary)]" />
                                         </button>
                                         <button onClick={() => { setShowOnlinePanel(false); onViewProfile?.(u); }}

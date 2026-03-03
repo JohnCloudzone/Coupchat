@@ -72,9 +72,18 @@ export default function Sidebar({ currentPage, onNavigate, onMenuToggle }) {
             {user && (
                 <div className="px-3 py-2 border-t border-[var(--border)]">
                     <button onClick={onMenuToggle} className="w-full flex items-center gap-2 px-2 py-2 rounded-xl bg-[var(--bg-tertiary)] hover:bg-[var(--border)] transition-colors">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                            style={{ background: 'var(--gradient-primary)', color: 'white' }}>
-                            {user.name?.[0]?.toUpperCase() || '?'}
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
+                            style={{ background: 'var(--bg-secondary)' }}>
+                            <img
+                                src={user.gender === 'female'
+                                    ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.name}&hairprobability=100&hair=long01,long02,long03,long04`
+                                    : user.gender === 'male'
+                                        ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.name}&hairprobability=100&hair=short01,short02,short03`
+                                        : `https://api.dicebear.com/7.x/bottts/svg?seed=${user.guestId}`
+                                }
+                                alt={user.name}
+                                className="w-full h-full object-cover"
+                            />
                         </div>
                         <div className="hidden lg:block min-w-0 flex-1 text-left">
                             <p className="text-[10px] uppercase font-semibold tracking-wider" style={{ color: 'var(--text-muted)' }}>Logged in as</p>

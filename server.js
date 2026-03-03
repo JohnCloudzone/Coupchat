@@ -101,7 +101,60 @@ app.prepare().then(() => {
         maxHttpBufferSize: 5e6,
     });
 
+    const BOT_NAMES = [
+        "Aarohi", "Aarti", "Aditi", "Aisha", "Akanksha", "Amira", "Ananya", "Anjali", "Anushka",
+        "Aparna", "Arpita", "Arya", "Avni", "Bhavna", "Bhumika", "Chahat", "Charu", "Chetna",
+        "Deepa", "Deepika", "Devanshi", "Disha", "Divya", "Esha", "Gargi", "Garima", "Geeta",
+        "Gauri", "Himanshi", "Isha", "Ishita", "Janvi", "Jasmin", "Jaya", "Jyoti", "Kajal",
+        "Kalyani", "Kamini", "Kangana", "Kareena", "Kavita", "Kavya", "Khushi", "Kiran", "Komal",
+        "Kriti", "Krutika", "Lata", "Lavanya", "Laxmi", "Leela", "Madhu", "Madhuri", "Mahi",
+        "Mahima", "Manisha", "Meena", "Megha", "Muskan", "Naina", "Nandini", "Neha", "Nidhi",
+        "Nikita", "Nisha", "Nitya", "Pallavi", "Payal", "Pooja", "Poonam", "Prachi", "Prakriti",
+        "Prerna", "Priya", "Priyanka", "Puja", "Radhika", "Raghav", "Rashi", "Rashmi", "Raveena",
+        "Reena", "Renuka", "Rhea", "Richa", "Riddhi", "Rina", "Ritika", "riya", "Roshni", "Ruchika",
+        "Rupa", "Rupal", "Rupali", "Rutuja", "Sakshi", "Saloni", "Samiksha", "Sana", "Sangeeta",
+        "Sanika", "Sanjana", "Sapna", "Sara", "Saraswati", "Sarita", "Savitri", "Seema", "Shagun",
+        "Shalaka", "Shalini", "Shamita", "Sharayu", "Sharvari", "Sheela", "Sheetal", "Shikha", "Shilpa",
+        "Shivani", "Shraddha", "Shravani", "Shreya", "Shruti", "Shubhangi", "Shweta", "Siddhi", "Simran",
+        "Smita", "Smriti", "Sneha", "Sonali", "Sonam", "Soniya", "Srishti", "Suman", "Sunita", "Suvarna",
+        "Swati", "Tanisha", "Tanvi", "Tara", "Tejaswini", "Trisha", "Tulsi", "Urmila", "Urvashi", "Vaishnavi",
+        "Vandana", "Varsha", "Vedika", "Veena", "Vidya", "Yamini", "Yashvi", "Zikra", "Zoya",
+
+        "Mia", "Emma", "Olivia", "Ava", "Isabella", "Sophia", "Amelia", "Harper", "Evelyn", "Abigail",
+        "Emily", "Elizabeth", "Mila", "Ella", "Avery", "Sofia", "Camila", "Aria", "Scarlett", "Victoria",
+        "Madison", "Luna", "Grace", "Chloe", "Penelope", "Layla", "Riley", "Zoey", "Nora", "Lily",
+        "Eleanor", "Hannah", "Lillian", "Addison", "Aubrey", "Ellie", "Stella", "Natalie", "Zoe", "Leah",
+        "Hazel", "Violet", "Aurora", "Savannah", "Audrey", "Brooklyn", "Bella", "Claire", "Skylar", "Lucy"
+    ];
+
     let onlineCount = 0;
+
+    // --- INITIALIZE BOTS ---
+    const NUM_BOTS = 300;
+    for (let i = 0; i < NUM_BOTS; i++) {
+        const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)] + (Math.random() > 0.5 ? Math.floor(Math.random() * 99) : '');
+        const botId = `bot_${uuidv4().slice(0, 8)}`;
+        const botSocketId = `bot_sock_${uuidv4().slice(0, 8)}`;
+
+        users[botSocketId] = {
+            id: botSocketId,
+            guestId: botId,
+            name: botName,
+            gender: 'female',
+            age: Math.floor(Math.random() * (35 - 18 + 1)) + 18, // 18 to 35
+            avatar: null,
+            joinedAt: Date.now() - Math.floor(Math.random() * 10000000),
+            currentRoom: null,
+            isBot: true // Flag to identify auto-responders
+        };
+
+        // Randomly assign to a public room
+        const randomRoom = DEFAULT_ROOMS[Math.floor(Math.random() * DEFAULT_ROOMS.length)].id;
+        users[botSocketId].currentRoom = randomRoom;
+        rooms[randomRoom].users.add(botSocketId);
+
+        onlineCount++;
+    }
 
     function getPublicStreams() {
         return Object.values(streams)
@@ -416,6 +469,75 @@ app.prepare().then(() => {
                     }
                 }
             });
+
+            // --- BOT AUTO-RESPONDER LOGIC ---
+            const targetGuestId = conv.participants.find(p => p !== user.guestId);
+            const targetUser = Object.values(users).find(u => u.guestId === targetGuestId);
+
+            if (targetUser && targetUser.isBot) {
+                // Simulate typing delay (2 to 5 seconds)
+                const typingDelay = Math.floor(Math.random() * 3000) + 2000;
+
+                setTimeout(() => {
+                    io.to(`conv_${conv.id}`).emit('dm-user-typing', { conversationId: conv.id, userName: targetUser.name });
+
+                    // Simulate message creation delay
+                    setTimeout(() => {
+                        const botReplies = [
+                            "Hey there! 😄",
+                            "Hi! How are you doing?",
+                            "I'm totally new here, still figuring this out lol",
+                            "Ooo nice picture!",
+                            "Haha that's funny",
+                            "Tell me more about yourself?",
+                            "Where are you from?",
+                            "Aww sweet! 😊",
+                            "What are you up to today?",
+                            "I love that!"
+                        ];
+                        const replyText = botReplies[Math.floor(Math.random() * botReplies.length)];
+
+                        const botMessage = {
+                            id: uuidv4(),
+                            senderId: targetUser.guestId,
+                            senderName: targetUser.name,
+                            text: replyText,
+                            image: null,
+                            type: 'text',
+                            timestamp: Date.now(),
+                            readBy: [targetUser.guestId]
+                        };
+
+                        conv.messages.push(botMessage);
+                        conv.lastMessage = { text: replyText, sender: targetUser.name, timestamp: botMessage.timestamp };
+                        conv.lastActivity = botMessage.timestamp;
+
+                        // Unread for the real user
+                        conv.unread[user.guestId] = (conv.unread[user.guestId] || 0) + 1;
+
+                        // Stop typing and emit message
+                        io.to(`conv_${conv.id}`).emit('dm-user-stop-typing', { conversationId: conv.id });
+                        io.to(`conv_${conv.id}`).emit('dm-new-message', { conversationId: conv.id, message: botMessage });
+
+                        // Send unread payload to the real user
+                        io.to(socket.id).emit('unread-update', {
+                            conversationId: conv.id,
+                            unread: conv.unread[user.guestId],
+                            lastMessage: conv.lastMessage,
+                            from: targetUser.name,
+                            fromGuestId: targetUser.guestId,
+                        });
+                        io.to(socket.id).emit('dm-notification', {
+                            conversationId: conv.id,
+                            from: targetUser.name,
+                            fromGuestId: targetUser.guestId,
+                            text: replyText,
+                            timestamp: botMessage.timestamp,
+                        });
+
+                    }, 2000); // 2 seconds of typing
+                }, typingDelay);
+            }
         });
 
         socket.on('mark-read', (data) => {

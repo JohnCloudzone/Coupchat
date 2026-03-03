@@ -46,9 +46,18 @@ export default function DiscoverPage({ onNavigate, onStartDM, onViewProfile }) {
             onClick={() => onStartDM?.(conv)}
             className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors animate-slide-up"
             style={{ animationDelay: `${i * 0.03}s` }}>
-            <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 relative"
-                style={{ background: 'var(--gradient-primary)', color: 'white' }}>
-                {(conv.participantName || '?')[0]?.toUpperCase()}
+            <div className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 relative"
+                style={{ background: 'var(--bg-secondary)' }}>
+                <img
+                    src={conv.participantGender === 'female'
+                        ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${conv.participantName}&hairprobability=100&hair=long01,long02,long03,long04`
+                        : conv.participantGender === 'male'
+                            ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${conv.participantName}&hairprobability=100&hair=short01,short02,short03`
+                            : `https://api.dicebear.com/7.x/bottts/svg?seed=${conv.participantGuestId}`
+                    }
+                    alt={conv.participantName}
+                    className="w-full h-full object-cover"
+                />
                 <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[var(--bg-primary)] ${conv.participantOnline ? 'bg-green-500' : 'bg-gray-500'}`} />
             </div>
             <div className="flex-1 text-left min-w-0">
@@ -79,9 +88,18 @@ export default function DiscoverPage({ onNavigate, onStartDM, onViewProfile }) {
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors animate-slide-up"
             style={{ animationDelay: `${i * 0.03}s` }}>
             <button onClick={() => onViewProfile?.(u)}
-                className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 hover:scale-110 transition-transform relative"
-                style={{ background: 'var(--gradient-primary)', color: 'white' }}>
-                {u.name?.[0]?.toUpperCase() || '?'}
+                className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-110 transition-transform relative"
+                style={{ background: 'var(--bg-secondary)' }}>
+                <img
+                    src={u.gender === 'female'
+                        ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${u.name}&hairprobability=100&hair=long01,long02,long03,long04`
+                        : u.gender === 'male'
+                            ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${u.name}&hairprobability=100&hair=short01,short02,short03`
+                            : `https://api.dicebear.com/7.x/bottts/svg?seed=${u.guestId}`
+                    }
+                    alt={u.name}
+                    className="w-full h-full object-cover"
+                />
                 <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-[var(--bg-primary)]" />
             </button>
             <button onClick={() => onViewProfile?.(u)} className="flex-1 min-w-0 text-left">
@@ -105,9 +123,18 @@ export default function DiscoverPage({ onNavigate, onStartDM, onViewProfile }) {
             <div className="max-w-2xl mx-auto">
                 {/* Profile Banner */}
                 <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b border-[var(--border)]">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold relative"
-                        style={{ background: 'var(--gradient-primary)', color: 'white' }}>
-                        {user?.name?.[0]?.toUpperCase() || '?'}
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden relative"
+                        style={{ background: 'var(--bg-secondary)' }}>
+                        <img
+                            src={user?.gender === 'female'
+                                ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.name}&hairprobability=100&hair=long01,long02,long03,long04`
+                                : user?.gender === 'male'
+                                    ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.name}&hairprobability=100&hair=short01,short02,short03`
+                                    : `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.guestId}`
+                            }
+                            alt={user?.name}
+                            className="w-full h-full object-cover"
+                        />
                         <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-[var(--bg-primary)]" />
                     </div>
                     <div className="flex-1 min-w-0">
