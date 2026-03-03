@@ -71,6 +71,13 @@ export default function LivePage() {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [streamChat]);
 
+    // Set video source for broadcaster
+    useEffect(() => {
+        if (isStreaming && myStream && videoRef.current && localStreamRef.current) {
+            videoRef.current.srcObject = localStreamRef.current;
+        }
+    }, [isStreaming, myStream]);
+
     const handleVerify = () => {
         localStorage.setItem('coupchat-age-verified', 'true');
         setVerified(true);
@@ -102,11 +109,6 @@ export default function LivePage() {
                 // Start duration counter
                 durationRef.current = setInterval(() => setStreamDuration(prev => prev + 1), 1000);
             });
-
-            // Show video preview
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
         } catch (err) {
             console.error('Failed to start stream:', err);
             alert('Could not access camera/screen. Please allow permissions.');
