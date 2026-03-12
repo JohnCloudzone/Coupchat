@@ -7,26 +7,28 @@ export default function CallNotification({ call, onAccept, onReject }) {
     useEffect(() => {
         // Play ringtone sound
         try {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.frequency.value = 440;
-            gainNode.gain.value = 0.1;
-            oscillator.start();
+            if (typeof window !== 'undefined') {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.frequency.value = 440;
+                gainNode.gain.value = 0.1;
+                oscillator.start();
 
-            const interval = setInterval(() => {
-                oscillator.frequency.value = oscillator.frequency.value === 440 ? 520 : 440;
-            }, 500);
+                const interval = setInterval(() => {
+                    oscillator.frequency.value = oscillator.frequency.value === 440 ? 520 : 440;
+                }, 500);
 
-            audioRef.current = { oscillator, audioCtx, interval };
+                audioRef.current = { oscillator, audioCtx, interval };
 
-            return () => {
-                clearInterval(interval);
-                oscillator.stop();
-                audioCtx.close();
-            };
+                return () => {
+                    clearInterval(interval);
+                    oscillator.stop();
+                    audioCtx.close();
+                };
+            }
         } catch (e) { }
     }, []);
 

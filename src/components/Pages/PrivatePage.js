@@ -3,9 +3,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSocket } from '@/context/SocketContext';
 import MessageFeed from '@/components/Chat/MessageFeed';
 import MessageInput from '@/components/Chat/MessageInput';
+import { useCallContext } from '@/app/ClientLayout';
 
-export default function PrivatePage({ onCall }) {
+export default function PrivatePage() {
     const { socket, user } = useSocket();
+    const { setCallState } = useCallContext();
     const [status, setStatus] = useState('idle'); // idle, searching, matched
     const [partner, setPartner] = useState(null);
     const [chatId, setChatId] = useState(null);
@@ -202,7 +204,7 @@ export default function PrivatePage({ onCall }) {
                 </div>
                 <div className="flex items-center gap-1">
                     <button
-                        onClick={() => onCall && onCall({ type: 'voice', partnerId: socket?.id })}
+                        onClick={() => setCallState({ type: 'voice', partnerId: socket?.id })}
                         className="p-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors" title="Voice Call"
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -210,7 +212,7 @@ export default function PrivatePage({ onCall }) {
                         </svg>
                     </button>
                     <button
-                        onClick={() => onCall && onCall({ type: 'video', partnerId: socket?.id })}
+                        onClick={() => setCallState({ type: 'video', partnerId: socket?.id })}
                         className="p-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors" title="Video Call"
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

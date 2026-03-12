@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useCallback } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 import EmojiPicker from './EmojiPicker';
 
 export default function MessageInput({ onSend, onTyping }) {
@@ -42,45 +43,30 @@ export default function MessageInput({ onSend, onTyping }) {
         }
 
         setUploading(true);
-        setUploadProgress(0);
+        setUploadProgress(10); // Start progress
 
-        const reader = new FileReader();
-        reader.onprogress = (e) => {
-            if (e.lengthComputable) {
-                setUploadProgress(Math.round((e.loaded / e.total) * 100));
-            }
-        };
-        reader.onload = () => {
-            // Compress if needed
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const maxSize = 800;
-                let { width, height } = img;
+        // Upload to Supabase Storage
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${file.name.split('.').pop()}`;
 
-                if (width > maxSize || height > maxSize) {
-                    if (width > height) {
-                        height = (height / width) * maxSize;
-                        width = maxSize;
-                    } else {
-                        width = (width / height) * maxSize;
-                        height = maxSize;
-                    }
+        supabase.storage
+            .from('chat-images')
+            .upload(fileName, file, { cacheControl: '3600', upsert: false })
+            .then(({ data, error }) => {
+                if (error) {
+                    console.error('Upload error', error);
+                    alert('Failed to upload image');
+                    setUploading(false);
+                    return;
                 }
 
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
+                const { data: { publicUrl } } = supabase.storage
+                    .from('chat-images')
+                    .getPublicUrl(fileName);
 
-                const compressed = canvas.toDataURL('image/jpeg', 0.7);
-                setPreviewImage(compressed);
-                setUploading(false);
+                setPreviewImage(publicUrl);
                 setUploadProgress(100);
-            };
-            img.src = reader.result;
-        };
-        reader.readAsDataURL(file);
+                setTimeout(() => setUploading(false), 500);
+            });
 
         // Reset file input
         if (fileInputRef.current) fileInputRef.current.value = '';

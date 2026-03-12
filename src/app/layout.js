@@ -1,7 +1,11 @@
 import './globals.css';
-import { ThemeProvider } from '@/context/ThemeContext';
-import { SocketProvider } from '@/context/SocketContext';
 import Script from 'next/script';
+import dynamic from 'next/dynamic';
+
+const ThemeProvider = dynamic(() => import('@/context/ThemeContext').then(mod => mod.ThemeProvider), { ssr: false });
+
+const SocketProvider = dynamic(() => import('@/context/SocketContext').then(mod => mod.SocketProvider), { ssr: false });
+const ClientLayout = dynamic(() => import('./ClientLayout'), { ssr: false });
 
 export const metadata = {
     title: 'CoupChat – Free Anonymous Chat | Talk to Strangers',
@@ -43,6 +47,8 @@ export const viewport = {
     themeColor: '#8b5cf6',
 };
 
+
+
 export default function RootLayout({ children }) {
     return (
         <html lang="en" data-theme="cyberpunk" suppressHydrationWarning>
@@ -67,7 +73,9 @@ export default function RootLayout({ children }) {
             <body className="antialiased">
                 <ThemeProvider>
                     <SocketProvider>
-                        {children}
+                        <ClientLayout>
+                            {children}
+                        </ClientLayout>
                     </SocketProvider>
                 </ThemeProvider>
             </body>

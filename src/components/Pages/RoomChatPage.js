@@ -4,9 +4,11 @@ import { useSocket } from '@/context/SocketContext';
 import MessageFeed from '@/components/Chat/MessageFeed';
 import MessageInput from '@/components/Chat/MessageInput';
 import DrawingBoard from '@/components/Chat/DrawingBoard';
+import { useCallContext } from '@/app/ClientLayout';
 
-export default function RoomChatPage({ room, onBack, onCall }) {
+export default function RoomChatPage({ room, onBack }) {
     const { socket, user } = useSocket();
+    const { setCallState } = useCallContext();
     const [messages, setMessages] = useState([]);
     const [roomUsers, setRoomUsers] = useState([]);
     const [typingUsers, setTypingUsers] = useState([]);
@@ -141,7 +143,7 @@ export default function RoomChatPage({ room, onBack, onCall }) {
                         </svg>
                     </button>
                     <button
-                        onClick={() => onCall && onCall({ type: 'voice', roomId: room.id, roomName: room.name })}
+                        onClick={() => setCallState({ type: 'voice', roomId: room.id, roomName: room.name })}
                         className="p-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors"
                         title="Voice Call"
                     >
@@ -150,7 +152,7 @@ export default function RoomChatPage({ room, onBack, onCall }) {
                         </svg>
                     </button>
                     <button
-                        onClick={() => onCall && onCall({ type: 'video', roomId: room.id, roomName: room.name })}
+                        onClick={() => setCallState({ type: 'video', roomId: room.id, roomName: room.name })}
                         className="p-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors"
                         title="Video Call"
                     >

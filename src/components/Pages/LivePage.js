@@ -1,10 +1,12 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSocket } from '@/context/SocketContext';
 
 const CATEGORIES = ['All', 'Popular', 'Chat', 'Gaming', 'Music', 'Lifestyle', 'Creative', 'Tech'];
 
 export default function LivePage() {
+    const router = useRouter();
     const { socket, user } = useSocket();
     const [verified, setVerified] = useState(false);
     const [category, setCategory] = useState('All');
@@ -181,7 +183,7 @@ export default function LivePage() {
                     </p>
                     <button onClick={handleVerify}
                         className="w-full btn-glow py-3 rounded-xl text-sm font-semibold mb-3">I am 18+ years old — Enter</button>
-                    <button onClick={() => window.history.back()}
+                    <button onClick={() => router.back()}
                         className="w-full py-3 rounded-xl glass glass-hover text-sm font-medium"
                         style={{ color: 'var(--text-secondary)' }}>Go Back</button>
                 </div>
