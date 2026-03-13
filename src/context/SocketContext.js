@@ -61,6 +61,7 @@ export function SocketProvider({ children }) {
     const channelRef = useRef(null);
     const addNotifRef = useRef(null);
     const eventEmitterRef = useRef({});
+    const userRef = useRef(null);
 
     const addNotification = useCallback((notif) => {
         const id = Date.now().toString() + Math.random();
@@ -115,6 +116,7 @@ export function SocketProvider({ children }) {
             avatar: profile?.avatar || ''
         };
         setUser(currentUser);
+        userRef.current = currentUser;
 
         // Supabase Global Presence Channel
         const globalChannel = supabase.channel('global:presence', {
@@ -191,6 +193,7 @@ export function SocketProvider({ children }) {
         };
 
         setUser(updatedUser);
+        userRef.current = updatedUser;
 
         // Re-track presence with updated info
         if (channelRef.current && channelRef.current.state === 'joined') {
@@ -384,24 +387,27 @@ export function SocketProvider({ children }) {
                     }));
 
                     triggerEvent('message-history', { roomId, messages: formattedHistory });
-                    triggerEvent('room-users', { roomId, users: [currentUser, ...roomBots] });
+                    triggerEvent('room-users', { roomId, users: [userRef.current, ...roomBots] });
                     // Simulate a bot greeting after a short delay
                     setTimeout(() => {
                         const bot = roomBots[Math.floor(Math.random() * roomBots.length)];
                         triggerEvent('new-message', {
-                            id: 'bot_' + Date.now(),
-                            from: bot.name,
-                            fromGuestId: bot.guestId,
-                            text: `Hey ${currentUser.name}! Welcome to the room 👋`,
-                            timestamp: Date.now(),
-                            type: 'text',
+                            roomId,
+                            message: {
+                                id: 'bot_' + Date.now(),
+                                from: bot.name,
+                                fromGuestId: bot.guestId,
+                                text: `Hey ${userRef.current.name}! Welcome to the room 👋`,
+                                timestamp: Date.now(),
+                                type: 'text',
+                            }
                         });
                     }, 1500 + Math.random() * 2000);
                 } else if (event === 'send-message') {
                     const msgData = {
                         id: Date.now().toString(),
-                        from: currentUser.name,
-                        fromGuestId: currentUser.guestId,
+                        from: userRef.current.name,
+                        fromGuestId: userRef.current.guestId,
                         text: data.text,
                         timestamp: Date.now(),
                         type: data.type || 'text',
@@ -416,8 +422,8 @@ export function SocketProvider({ children }) {
                     // Save to DB
                     await supabase.from('messages').insert({
                         room_id: data.roomId || 'general',
-                        sender_id: currentUser.guestId,
-                        sender_name: currentUser.name,
+                        sender_id: userRef.current.guestId,
+                        sender_name: userRef.current.name,
                         text: data.text,
                         image_url: data.image,
                         type: data.type || 'text'

@@ -19,8 +19,6 @@ export default function RoomChatPage({ room, onBack }) {
     useEffect(() => {
         if (!socket || !room) return;
 
-        socket.emit('join-room', room.id);
-
         socket.on('message-history', (data) => {
             if (data.roomId === room.id) setMessages(data.messages);
         });
@@ -40,6 +38,8 @@ export default function RoomChatPage({ room, onBack }) {
         socket.on('room-users', (data) => {
             if (data.roomId === room.id) setRoomUsers(data.users);
         });
+
+        socket.emit('join-room', room.id);
 
         socket.on('user-typing', (data) => {
             if (data.roomId === room.id) {
@@ -185,7 +185,7 @@ export default function RoomChatPage({ room, onBack }) {
                     )}
                     <MessageFeed
                         messages={messages}
-                        currentUserId={socket?.id}
+                        currentUserId={user?.guestId}
                         typingUsers={typingUsers}
                         onReaction={handleReaction}
                     />
