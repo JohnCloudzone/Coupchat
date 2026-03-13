@@ -124,10 +124,11 @@ export function SocketProvider({ children }) {
         setUser(currentUser);
         userRef.current = currentUser;
 
-        // Supabase Global Presence Channel
+        // 1. Supabase Global Presence Channel
         const globalChannel = supabase.channel('global:presence', {
             config: { presence: { key: guestId } }
         });
+        channelRef.current = globalChannel;
 
         const allBots = getBotProfiles();
         const botCount = allBots.length;
@@ -138,7 +139,6 @@ export function SocketProvider({ children }) {
                 const realCount = Object.keys(state).length;
                 setOnlineCount((realCount > 0 ? realCount : 1) + botCount);
 
-                // Merge real users with bot profiles
                 const realUsers = Object.values(state).map(arr => arr[0]);
                 const mergedUsers = [...realUsers, ...allBots];
                 triggerEvent('online-users-list', { users: mergedUsers });
@@ -146,8 +146,6 @@ export function SocketProvider({ children }) {
             })
             .on('broadcast', { event: 'global-event' }, (payload) => {
                 const { type, data, targetGuestId } = payload.payload;
-
-                // If this event is targeted to a specific user, ensure it matches
                 if (targetGuestId && targetGuestId !== guestId) return;
 
                 if (type === 'dm-notification') {
@@ -160,20 +158,105 @@ export function SocketProvider({ children }) {
                         conversationId: data.conversationId,
                     });
                 }
-
-                // Pass the event directly to the listener router
                 triggerEvent(type, data);
             })
             .subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
                     setConnected(true);
-                    await globalChannel.track(currentUser);
+                    await globalChannel.track(userRef.current);
                 } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
                     setConnected(false);
                 }
             });
 
-        channelRef.current = globalChannel;
+        // 2. Mock Socket Definition
+        const mockSocket = {
+            id: guestId,
+            on: (event, callback) => {
+                if (!eventEmitterRef.current[event]) eventEmitterRef.current[event] = [];
+                eventEmitterRef.current[event].push(callback);
+            },
+            off: (event, callback) => {
+                if (!eventEmitterRef.current[event]) return;
+                if (callback) {
+                    eventEmitterRef.current[event] = eventEmitterRef.current[event].filter(cb => cb !== callback);
+                } else {
+                    delete eventEmitterRef.current[event];
+                }
+            },
+            once: (event, callback) => {
+                const onceWrapper = (data) => {
+                    callback(data);
+                    mockSocket.off(event, onceWrapper);
+                };
+                mockSocket.on(event, onceWrapper);
+            },
+            emit: async (event, data) => {
+                const channel = channelRef.current;
+                if (!channel) return;
+
+                const bots = getBotProfiles();
+                if (event === 'get-all-online-users' || event === 'get-online-users') {
+                    const state = channel.presenceState();
+                    const realUsers = Object.values(state).map(arr => arr[0]);
+                    const mergedUsers = [...realUsers, ...bots];
+                    triggerEvent(event === 'get-online-users' ? 'online-users-list' : 'all-online-users', { users: mergedUsers });
+                } else if (event === 'search-users') {
+                    const state = channel.presenceState();
+                    const q = (data.query || '').toLowerCase();
+                    const realUsers = Object.values(state).map(arr => arr[0]);
+                    const mergedUsers = [...realUsers, ...bots];
+                    const filtered = mergedUsers.filter(u => u.name.toLowerCase().includes(q) && u.guestId !== userRef.current.guestId);
+                    triggerEvent('search-results', { results: filtered });
+                } else if (['call-incoming', 'call-ended', 'call-offer', 'call-answer', 'ice-candidate', 'dm-message', 'dm-typing', 'dm-stop-typing', 'private-typing', 'private-stop-typing', 'private-chat-ended', 'find-random', 'cancel-random', 'room-users', 'user-typing', 'user-stop-typing'].includes(event)) {
+                    channel.send({
+                        type: 'broadcast',
+                        event: 'global-event',
+                        payload: { type: event, data: data, targetGuestId: data?.targetGuestId || data?.to }
+                    });
+                    if (event === 'dm-message' && data.conversationId) {
+                        triggerEvent('dm-new-message', data);
+                        triggerEvent('private-new-message', data);
+                        supabase.from('dm_messages').insert({
+                            conversation_id: data.conversationId,
+                            sender_id: userRef.current.guestId,
+                            sender_name: userRef.current.name,
+                            text: data.text,
+                            image_url: data.imageUrl,
+                            type: data.type || 'text'
+                        }).then(() => {
+                            supabase.from('conversations').update({ last_message: data.text || '📷 Image', last_message_at: new Date().toISOString() }).eq('id', data.conversationId);
+                        });
+                    }
+                } else if (event === 'join-room') {
+                    const roomId = data || 'general';
+                    const roomBots = getBotsForRoom(roomId, 8);
+                    triggerEvent('system-message', { text: 'You joined the room', type: 'system', roomId });
+                    const { data: history } = await supabase.from('messages').select('*').eq('room_id', roomId).order('created_at', { ascending: false }).limit(50);
+                    const formattedHistory = (history || []).reverse().map(m => ({
+                        id: m.id, from: m.sender_name, fromGuestId: m.sender_id, text: m.text, timestamp: new Date(m.created_at).getTime(), type: m.type, imageUrl: m.image_url
+                    }));
+                    triggerEvent('message-history', { roomId, messages: formattedHistory });
+                    triggerEvent('room-users', { roomId, users: [userRef.current, ...roomBots] });
+                    setTimeout(() => {
+                        const bot = roomBots[Math.floor(Math.random() * roomBots.length)];
+                        triggerEvent('new-message', { roomId, message: { id: 'bot_' + Date.now(), from: bot.name, fromGuestId: bot.guestId, text: `Hey ${userRef.current.name}! Welcome to the room 👋`, timestamp: Date.now(), type: 'text' } });
+                    }, 1500);
+                } else if (event === 'send-message') {
+                    const msgData = { id: Date.now().toString(), from: userRef.current.name, fromGuestId: userRef.current.guestId, text: data.text, timestamp: Date.now(), type: data.type || 'text', imageUrl: data.image };
+                    const fullPayload = { roomId: data.roomId || 'general', message: msgData };
+                    triggerEvent('new-message', fullPayload);
+                    supabase.from('messages').insert({ room_id: data.roomId || 'general', sender_id: userRef.current.guestId, sender_name: userRef.current.name, text: data.text, image_url: data.image, type: data.type || 'text' });
+                    const roomBots = getBotsForRoom(data.roomId || 'general', 8);
+                    setTimeout(() => {
+                        const bot = roomBots[Math.floor(Math.random() * roomBots.length)];
+                        triggerEvent('new-message', { roomId: data.roomId || 'general', message: { id: 'bot_reply_' + Date.now(), from: bot.name, fromGuestId: bot.guestId, text: getRandomBotReply(), timestamp: Date.now(), type: 'text' } });
+                    }, 2000 + Math.random() * 2000);
+                    channel.send({ type: 'broadcast', event: 'global-event', payload: { type: 'new-message', data: fullPayload } });
+                }
+            }
+        };
+        setSocket(mockSocket);
 
         return () => {
             supabase.removeChannel(globalChannel);
@@ -203,270 +286,19 @@ export function SocketProvider({ children }) {
         }
     }, [authProfile, authUser]);
 
+    // Load DM conversations for registered users
     useEffect(() => {
-        if (!user) return;
-        const guestId = user.guestId;
-
-        // Load conversations for registered users
-        if (authUser) {
-            const loadConversations = async () => {
-                const { data, error } = await supabase
-                    .from('conversations')
-                    .select('*')
-                    .or(`participant_a.eq.${guestId},participant_b.eq.${guestId}`)
-                    .order('last_message_at', { ascending: false });
-                if (!error && data) setConversations(data);
-            };
-            loadConversations();
-        }
-
-        const allBots = getBotProfiles();
-        const mockSocket = {
-            id: guestId,
-            on: (event, callback) => {
-                if (!eventEmitterRef.current[event]) eventEmitterRef.current[event] = [];
-                eventEmitterRef.current[event].push(callback);
-            },
-            off: (event, callback) => {
-                if (!eventEmitterRef.current[event]) return;
-                if (callback) {
-                    eventEmitterRef.current[event] = eventEmitterRef.current[event].filter(cb => cb !== callback);
-                } else {
-                    delete eventEmitterRef.current[event];
-                }
-            },
-            once: (event, callback) => {
-                const onceWrapper = (data) => {
-                    callback(data);
-                    mockSocket.off(event, onceWrapper);
-                };
-                mockSocket.on(event, onceWrapper);
-            },
-            emit: async (event, data) => {
-                // Determine how to route the emitted event
-                const globalChannel = channelRef.current;
-                if (!globalChannel) return;
-
-                const allBots = getBotProfiles();
-                // --- 1. Purely Local App State Requests ---
-                if (event === 'get-all-online-users' || event === 'get-online-users') {
-                    const state = globalChannel.presenceState();
-                    const realUsers = Object.values(state).map(arr => arr[0]);
-                    const mergedUsers = [...realUsers, ...allBots];
-                    triggerEvent(event === 'get-online-users' ? 'online-users-list' : 'all-online-users', { users: mergedUsers });
-                    return;
-                }
-
-                if (event === 'search-users') {
-                    const state = globalChannel.presenceState();
-                    const q = (data.query || '').toLowerCase();
-                    const realUsers = Object.values(state).map(arr => arr[0]);
-                    const mergedUsers = [...realUsers, ...allBots];
-                    const filtered = mergedUsers
-                        .filter(u => u.name.toLowerCase().includes(q) && u.guestId !== guestId);
-                    triggerEvent('search-results', { results: filtered });
-                    return;
-                }
-
-                // --- 2. Ephemeral Broadcasts (Call Signaling, Typing Indicators) ---
-                const broadcastEvents = [
-                    'call-incoming', 'call-ended', 'call-offer', 'call-answer', 'ice-candidate',
-                    'dm-message', 'dm-typing', 'dm-stop-typing',
-                    'private-typing', 'private-stop-typing', 'private-chat-ended',
-                    'find-random', 'cancel-random', 'room-users', 'user-typing', 'user-stop-typing'
-                ];
-
-                if (broadcastEvents.includes(event)) {
-                    // Send to all connected clients over the global channel
-                    globalChannel.send({
-                        type: 'broadcast',
-                        event: 'global-event',
-                        payload: { type: event, data: data, targetGuestId: data?.targetGuestId || data?.to }
-                    });
-
-                    // Bounce back message history updates locally to trick the sender UI into updating
-                    if (event === 'dm-message') {
-                        triggerEvent('dm-new-message', data);
-                        triggerEvent('private-new-message', data);
-
-                        // Save DM to database if conversationId exists
-                        if (data.conversationId) {
-                            supabase.from('dm_messages').insert({
-                                conversation_id: data.conversationId,
-                                sender_id: userRef.current.guestId,
-                                sender_name: userRef.current.name,
-                                text: data.text,
-                                image_url: data.imageUrl,
-                                type: data.type || 'text'
-                            }).then(() => {
-                                // Update last_message in conversation
-                                supabase.from('conversations')
-                                    .update({ last_message: data.text || '📷 Image', last_message_at: new Date().toISOString() })
-                                    .eq('id', data.conversationId);
-                            });
-                        }
-                    }
-                    return;
-                }
-
-                // --- 3. Persistent Database Events (To be implemented with Supabase DB later) ---
-                // For now, we simulate success for DB features so the frontend doesn't hang
-                if (event === 'create-room') {
-                    const newRoom = { id: data.name.toLowerCase().replace(/\s+/g, '-'), ...data, userCount: 1 };
-                    setRooms(prev => [...prev, newRoom]);
-                    triggerEvent('room-created', { room: newRoom });
-                } else if (event === 'start-dm') {
-                    const targetId = data.targetGuestId;
-
-                    // Try to find existing conversation
-                    let { data: convo } = await supabase
-                        .from('conversations')
-                        .select('*')
-                        .or(`and(participant_a.eq.${userRef.current.guestId},participant_b.eq.${targetId}),and(participant_a.eq.${targetId},participant_b.eq.${userRef.current.guestId})`)
-                        .single();
-
-                    if (!convo) {
-                        // Create new conversation
-                        const { data: newConvo } = await supabase
-                            .from('conversations')
-                            .insert({
-                                participant_a: userRef.current.guestId,
-                                participant_b: targetId,
-                                last_message: 'Started a conversation'
-                            })
-                            .select()
-                            .single();
-                        convo = newConvo;
-                    }
-
-                    if (convo) {
-                        // Load messages
-                        const { data: messages } = await supabase
-                            .from('dm_messages')
-                            .select('*')
-                            .eq('conversation_id', convo.id)
-                            .order('created_at', { ascending: false })
-                            .limit(50);
-
-                        const formattedMsgs = (messages || []).reverse().map(m => ({
-                            id: m.id,
-                            from: m.sender_name,
-                            fromGuestId: m.sender_id,
-                            text: m.text,
-                            timestamp: new Date(m.created_at).getTime(),
-                            type: m.type,
-                            imageUrl: m.image_url
-                        }));
-
-                        triggerEvent('dm-started', {
-                            conversation: {
-                                id: convo.id,
-                                participantGuestId: targetId,
-                                messages: formattedMsgs
-                            }
-                        });
-                    }
-                } else if (event === 'join-room') {
-                    const roomId = data || 'general';
-                    const roomBots = getBotsForRoom(roomId, 8);
-                    triggerEvent('system-message', { text: 'You joined the room', type: 'system' });
-
-                    // Load message history from DB
-                    const { data: history } = await supabase
-                        .from('messages')
-                        .select('*')
-                        .eq('room_id', roomId)
-                        .order('created_at', { ascending: false })
-                        .limit(50);
-
-                    const formattedHistory = (history || []).reverse().map(m => ({
-                        id: m.id,
-                        from: m.sender_name,
-                        fromGuestId: m.sender_id,
-                        text: m.text,
-                        timestamp: new Date(m.created_at).getTime(),
-                        type: m.type,
-                        imageUrl: m.image_url
-                    }));
-
-                    triggerEvent('message-history', { roomId, messages: formattedHistory });
-                    triggerEvent('room-users', { roomId, users: [userRef.current, ...roomBots] });
-                    // Simulate a bot greeting after a short delay
-                    setTimeout(() => {
-                        const bot = roomBots[Math.floor(Math.random() * roomBots.length)];
-                        triggerEvent('new-message', {
-                            roomId,
-                            message: {
-                                id: 'bot_' + Date.now(),
-                                from: bot.name,
-                                fromGuestId: bot.guestId,
-                                text: `Hey ${userRef.current.name}! Welcome to the room 👋`,
-                                timestamp: Date.now(),
-                                type: 'text',
-                            }
-                        });
-                    }, 1500 + Math.random() * 2000);
-                } else if (event === 'send-message') {
-                    const msgData = {
-                        id: Date.now().toString(),
-                        from: userRef.current.name,
-                        fromGuestId: userRef.current.guestId,
-                        text: data.text,
-                        timestamp: Date.now(),
-                        type: data.type || 'text',
-                        imageUrl: data.image
-                    };
-
-                    const fullPayload = { roomId: data.roomId || 'general', message: msgData };
-
-                    // Echo back the message locally so the sender sees it
-                    triggerEvent('new-message', fullPayload);
-
-                    // Save to DB
-                    await supabase.from('messages').insert({
-                        room_id: data.roomId || 'general',
-                        sender_id: userRef.current.guestId,
-                        sender_name: userRef.current.name,
-                        text: data.text,
-                        image_url: data.image,
-                        type: data.type || 'text'
-                    });
-
-                    // Bot auto-reply after 2-5 seconds
-                    const roomBots = getBotsForRoom(data.roomId || 'general', 8);
-                    const replyDelay = 2000 + Math.random() * 3000;
-                    setTimeout(() => {
-                        const bot = roomBots[Math.floor(Math.random() * roomBots.length)];
-                        triggerEvent('new-message', {
-                            roomId: data.roomId || 'general',
-                            message: {
-                                id: 'bot_reply_' + Date.now(),
-                                from: bot.name,
-                                fromGuestId: bot.guestId,
-                                text: getRandomBotReply(),
-                                timestamp: Date.now(),
-                                type: 'text',
-                            }
-                        });
-                    }, replyDelay);
-                    // And broadcast to others
-                    globalChannel.send({
-                        type: 'broadcast',
-                        event: 'global-event',
-                        payload: { type: 'new-message', data: fullPayload }
-                    });
-                } else if (event === 'get-friends') {
-                    triggerEvent('friends-updated', { friends: [] });
-                }
-            }
+        if (!authUser || !user) return;
+        const loadConversations = async () => {
+            const { data, error } = await supabase
+                .from('conversations')
+                .select('*')
+                .or(`participant_a.eq.${user.guestId},participant_b.eq.${user.guestId}`)
+                .order('last_message_at', { ascending: false });
+            if (!error && data) setConversations(data);
         };
-
-        setSocket(mockSocket);
-
-        return () => {
-            supabase.removeChannel(globalChannel);
-        };
-    }, []);
+        loadConversations();
+    }, [authUser, user]);
 
     const updateName = useCallback((newName) => {
         localStorage.setItem('coupchat-guestName', newName);
