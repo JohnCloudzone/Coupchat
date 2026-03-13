@@ -2,10 +2,12 @@
 import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { getBotProfiles, getBotsForRoom, getRandomBotReply } from '@/lib/botProfiles';
+import { useAuth } from '@/context/AuthContext';
 
 const SocketContext = createContext();
 
 export function SocketProvider({ children }) {
+    const { authUser, profile: authProfile } = useAuth();
     // Keeps "socket" name for compatibility with all the existing components
     const [socket, setSocket] = useState(null);
     const [connected, setConnected] = useState(false);
@@ -163,6 +165,19 @@ export function SocketProvider({ children }) {
                 }
             });
 
+        // Load conversations for registered users
+        if (authUser) {
+            const loadConversations = async () => {
+                const { data, error } = await supabase
+                    .from('conversations')
+                    .select('*')
+                    .or(`participant_a.eq.${authUser.id},participant_b.eq.${authUser.id}`)
+                    .order('last_message_at', { ascending: false });
+                if (!error && data) setConversations(data);
+            };
+            loadConversations();
+        }
+
         channelRef.current = globalChannel;
 
         // The Mock Socket wraps Supabase to prevent breaking 25+ components
@@ -230,6 +245,23 @@ export function SocketProvider({ children }) {
                     if (event === 'dm-message') {
                         triggerEvent('dm-new-message', data);
                         triggerEvent('private-new-message', data);
+
+                        // Save DM to database if conversationId exists
+                        if (data.conversationId) {
+                            supabase.from('dm_messages').insert({
+                                conversation_id: data.conversationId,
+                                sender_id: currentUser.guestId,
+                                sender_name: currentUser.name,
+                                text: data.text,
+                                image_url: data.imageUrl,
+                                type: data.type || 'text'
+                            }).then(() => {
+                                // Update last_message in conversation
+                                supabase.from('conversations')
+                                    .update({ last_message: data.text || '📷 Image', last_message_at: new Date().toISOString() })
+                                    .eq('id', data.conversationId);
+                            });
+                        }
                     }
                     return;
                 }
@@ -241,11 +273,80 @@ export function SocketProvider({ children }) {
                     setRooms(prev => [...prev, newRoom]);
                     triggerEvent('room-created', { room: newRoom });
                 } else if (event === 'start-dm') {
-                    triggerEvent('dm-started', { conversation: { id: `dm_${data.targetGuestId}`, participantGuestId: data.targetGuestId, messages: [] } });
+                    const targetId = data.targetGuestId;
+
+                    // Try to find existing conversation
+                    let { data: convo } = await supabase
+                        .from('conversations')
+                        .select('*')
+                        .or(`and(participant_a.eq.${currentUser.guestId},participant_b.eq.${targetId}),and(participant_a.eq.${targetId},participant_b.eq.${currentUser.guestId})`)
+                        .single();
+
+                    if (!convo) {
+                        // Create new conversation
+                        const { data: newConvo } = await supabase
+                            .from('conversations')
+                            .insert({
+                                participant_a: currentUser.guestId,
+                                participant_b: targetId,
+                                last_message: 'Started a conversation'
+                            })
+                            .select()
+                            .single();
+                        convo = newConvo;
+                    }
+
+                    if (convo) {
+                        // Load messages
+                        const { data: messages } = await supabase
+                            .from('dm_messages')
+                            .select('*')
+                            .eq('conversation_id', convo.id)
+                            .order('created_at', { ascending: false })
+                            .limit(50);
+
+                        const formattedMsgs = (messages || []).reverse().map(m => ({
+                            id: m.id,
+                            from: m.sender_name,
+                            fromGuestId: m.sender_id,
+                            text: m.text,
+                            timestamp: new Date(m.created_at).getTime(),
+                            type: m.type,
+                            imageUrl: m.image_url
+                        }));
+
+                        triggerEvent('dm-started', {
+                            conversation: {
+                                id: convo.id,
+                                participantGuestId: targetId,
+                                messages: formattedMsgs
+                            }
+                        });
+                    }
                 } else if (event === 'join-room') {
-                    const roomBots = getBotsForRoom(data || 'general', 8);
+                    const roomId = data || 'general';
+                    const roomBots = getBotsForRoom(roomId, 8);
                     triggerEvent('system-message', { text: 'You joined the room', type: 'system' });
-                    triggerEvent('message-history', { messages: [] });
+
+                    // Load message history from DB
+                    const { data: history } = await supabase
+                        .from('messages')
+                        .select('*')
+                        .eq('room_id', roomId)
+                        .order('created_at', { ascending: false })
+                        .limit(50);
+
+                    const formattedHistory = (history || []).reverse().map(m => ({
+                        id: m.id,
+                        from: m.sender_name,
+                        fromGuestId: m.sender_id,
+                        text: m.text,
+                        timestamp: new Date(m.created_at).getTime(),
+                        type: m.type,
+                        imageUrl: m.image_url
+                    }));
+
+                    triggerEvent('message-history', { messages: formattedHistory });
                     triggerEvent('room-users', { users: [currentUser, ...roomBots] });
                     // Simulate a bot greeting after a short delay
                     setTimeout(() => {
@@ -260,8 +361,7 @@ export function SocketProvider({ children }) {
                         });
                     }, 1500 + Math.random() * 2000);
                 } else if (event === 'send-message') {
-                    // Echo back the message locally so the sender sees it
-                    triggerEvent('new-message', {
+                    const msgData = {
                         id: Date.now().toString(),
                         from: currentUser.name,
                         fromGuestId: currentUser.guestId,
@@ -269,7 +369,21 @@ export function SocketProvider({ children }) {
                         timestamp: Date.now(),
                         type: data.type || 'text',
                         imageUrl: data.image
+                    };
+
+                    // Echo back the message locally so the sender sees it
+                    triggerEvent('new-message', msgData);
+
+                    // Save to DB
+                    await supabase.from('messages').insert({
+                        room_id: data.roomId || 'general',
+                        sender_id: currentUser.guestId,
+                        sender_name: currentUser.name,
+                        text: data.text,
+                        image_url: data.image,
+                        type: data.type || 'text'
                     });
+
                     // Bot auto-reply after 2-5 seconds
                     const roomBots = getBotsForRoom(data.roomId || 'general', 8);
                     const replyDelay = 2000 + Math.random() * 3000;
