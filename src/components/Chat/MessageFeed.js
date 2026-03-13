@@ -59,7 +59,7 @@ export default function MessageFeed({ messages, currentUserId, typingUsers = [],
                         );
                     }
 
-                    const isSent = msg.userId === currentUserId;
+                    const isSent = msg.fromGuestId === currentUserId;
 
                     return (
                         <div

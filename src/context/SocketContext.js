@@ -171,13 +171,44 @@ export function SocketProvider({ children }) {
                 }
             });
 
+        channelRef.current = globalChannel;
+
+        return () => {
+            supabase.removeChannel(globalChannel);
+        };
+    }, []);
+
+    // Effect to sync socket user with AuthContext profile
+    useEffect(() => {
+        if (!authProfile && !authUser) return;
+
+        const updatedUser = {
+            guestId: localStorage.getItem('coupchat-guestId') || user?.guestId,
+            name: authProfile?.name || authUser?.email?.split('@')[0] || user?.name,
+            gender: authProfile?.gender || user?.gender || '',
+            age: authProfile?.age || user?.age || '',
+            avatar: authProfile?.avatar || user?.avatar || ''
+        };
+
+        setUser(updatedUser);
+
+        // Re-track presence with updated info
+        if (channelRef.current && channelRef.current.state === 'joined') {
+            channelRef.current.track(updatedUser);
+        }
+    }, [authProfile, authUser]);
+
+    useEffect(() => {
+        if (!user) return;
+        const guestId = user.guestId;
+
         // Load conversations for registered users
         if (authUser) {
             const loadConversations = async () => {
                 const { data, error } = await supabase
                     .from('conversations')
                     .select('*')
-                    .or(`participant_a.eq.${authUser.id},participant_b.eq.${authUser.id}`)
+                    .or(`participant_a.eq.${guestId},participant_b.eq.${guestId}`)
                     .order('last_message_at', { ascending: false });
                 if (!error && data) setConversations(data);
             };
@@ -352,8 +383,8 @@ export function SocketProvider({ children }) {
                         imageUrl: m.image_url
                     }));
 
-                    triggerEvent('message-history', { messages: formattedHistory });
-                    triggerEvent('room-users', { users: [currentUser, ...roomBots] });
+                    triggerEvent('message-history', { roomId, messages: formattedHistory });
+                    triggerEvent('room-users', { roomId, users: [currentUser, ...roomBots] });
                     // Simulate a bot greeting after a short delay
                     setTimeout(() => {
                         const bot = roomBots[Math.floor(Math.random() * roomBots.length)];
@@ -377,8 +408,10 @@ export function SocketProvider({ children }) {
                         imageUrl: data.image
                     };
 
+                    const fullPayload = { roomId: data.roomId || 'general', message: msgData };
+
                     // Echo back the message locally so the sender sees it
-                    triggerEvent('new-message', msgData);
+                    triggerEvent('new-message', fullPayload);
 
                     // Save to DB
                     await supabase.from('messages').insert({
@@ -396,19 +429,22 @@ export function SocketProvider({ children }) {
                     setTimeout(() => {
                         const bot = roomBots[Math.floor(Math.random() * roomBots.length)];
                         triggerEvent('new-message', {
-                            id: 'bot_reply_' + Date.now(),
-                            from: bot.name,
-                            fromGuestId: bot.guestId,
-                            text: getRandomBotReply(),
-                            timestamp: Date.now(),
-                            type: 'text',
+                            roomId: data.roomId || 'general',
+                            message: {
+                                id: 'bot_reply_' + Date.now(),
+                                from: bot.name,
+                                fromGuestId: bot.guestId,
+                                text: getRandomBotReply(),
+                                timestamp: Date.now(),
+                                type: 'text',
+                            }
                         });
                     }, replyDelay);
                     // And broadcast to others
                     globalChannel.send({
                         type: 'broadcast',
                         event: 'global-event',
-                        payload: { type: 'new-message', data: { ...data, from: currentUser.name, fromGuestId: currentUser.guestId } }
+                        payload: { type: 'new-message', data: fullPayload }
                     });
                 } else if (event === 'get-friends') {
                     triggerEvent('friends-updated', { friends: [] });

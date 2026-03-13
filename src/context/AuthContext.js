@@ -41,6 +41,9 @@ export function AuthProvider({ children }) {
                 setAuthUser(session.user);
                 setIsGuest(false);
                 localStorage.setItem('coupchat-auth-mode', 'registered');
+                // Clean up guest data that might interfere
+                localStorage.removeItem('coupchat-guestName');
+                localStorage.removeItem('coupchat-profile');
                 await loadProfile(session.user.id);
                 setAuthReady(true);
             } else if (event === 'SIGNED_OUT') {
