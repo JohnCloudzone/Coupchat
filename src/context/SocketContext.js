@@ -281,17 +281,19 @@ export function SocketProvider({ children }) {
     }, [triggerEvent]);
 
     // Effect to sync socket user with AuthContext profile
-
-    // Effect to sync socket user with AuthContext profile
     useEffect(() => {
         if (!authProfile && !authUser) return;
 
+        // AuthContext profile uses: display_name, avatar_url, gender, age
+        // localStorage profile uses: name, avatar, gender, age
+        const lsProfile = (() => { try { return JSON.parse(localStorage.getItem('coupchat-profile') || '{}'); } catch (e) { return {}; } })();
+
         const updatedUser = {
             guestId: localStorage.getItem('coupchat-guestId') || user?.guestId,
-            name: authProfile?.name || authUser?.email?.split('@')[0] || user?.name,
-            gender: authProfile?.gender || user?.gender || '',
-            age: authProfile?.age || user?.age || '',
-            avatar: authProfile?.avatar || user?.avatar || ''
+            name: authProfile?.display_name || authProfile?.name || lsProfile?.name || authUser?.email?.split('@')[0] || user?.name,
+            gender: authProfile?.gender || lsProfile?.gender || user?.gender || '',
+            age: authProfile?.age || lsProfile?.age || user?.age || '',
+            avatar: authProfile?.avatar_url || authProfile?.avatar || lsProfile?.avatar || user?.avatar || ''
         };
 
         setUser(updatedUser);

@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useNavigation } from '@/app/ClientLayout';
 
 export default function SettingsPage() {
-    const { user, updateName } = useSocket();
+    const { user, updateName, updateProfile } = useSocket();
     const { onNavigate, onZoom } = useNavigation();
     const { theme, setTheme, themes } = useTheme();
     const { authUser, isGuest, uploadAvatar, signOut } = useAuth();
@@ -20,7 +20,10 @@ export default function SettingsPage() {
     const fileInputRef = useRef(null);
 
     useEffect(() => {
-        if (user) setDisplayName(user.name);
+        if (user) {
+            setDisplayName(user.name);
+            if (user.avatar) setAvatarUrl(user.avatar);
+        }
     }, [user]);
 
     useEffect(() => {
@@ -36,6 +39,13 @@ export default function SettingsPage() {
     const saveName = () => {
         if (displayName.trim()) {
             updateName(displayName.trim());
+            // Also update the full profile so sidebar/header get the new name immediately
+            updateProfile({
+                name: displayName.trim(),
+                gender: user?.gender || '',
+                age: user?.age || '',
+                avatar: avatarUrl || user?.avatar || '',
+            });
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         }
@@ -52,6 +62,13 @@ export default function SettingsPage() {
         try {
             const url = await uploadAvatar(file);
             setAvatarUrl(url);
+            // Immediately update the global user object so sidebar/header update in real-time
+            updateProfile({
+                name: user?.name || displayName,
+                gender: user?.gender || '',
+                age: user?.age || '',
+                avatar: url,
+            });
         } catch (err) {
             console.error('Upload failed:', err);
             alert('Upload failed. Please try again.');
