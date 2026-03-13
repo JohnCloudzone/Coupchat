@@ -12,7 +12,9 @@ import CallPanel from '@/components/Call/CallPanel';
 import CallNotification from '@/components/Call/CallNotification';
 import WelcomeModal from '@/components/WelcomeModal';
 import NotificationToast from '@/components/NotificationToast';
-import { useSocket } from '@/context/SocketContext'; // Will be replaced by RealtimeContext later
+import { useSocket } from '@/context/SocketContext';
+import { useAuth } from '@/context/AuthContext';
+import AuthPage from '@/app/auth/page';
 
 export const CallContext = createContext();
 export const useCallContext = () => useContext(CallContext);
@@ -20,6 +22,7 @@ export const useCallContext = () => useContext(CallContext);
 export default function ClientLayout({ children }) {
     const pathname = usePathname();
     const router = useRouter();
+    const { authReady, authLoading, isGuest, authUser } = useAuth();
 
     // Determine logical "currentPage" from URL pathname
     const currentPage = pathname === '/' ? 'home'
@@ -30,11 +33,12 @@ export default function ClientLayout({ children }) {
                         : pathname.startsWith('/friends') ? 'friends'
                             : pathname.startsWith('/live') ? 'live'
                                 : pathname.startsWith('/dm/') ? 'dm'
-                                    : 'home';
+                                    : pathname.startsWith('/games') ? 'games'
+                                        : 'home';
 
     const [callState, setCallState] = useState(null);
     const [incomingCall, setIncomingCall] = useState(null);
-    const [showWelcome, setShowWelcome] = useState(false); // Initially false to avoid hydration mismatch, true after mount if no profile
+    const [showWelcome, setShowWelcome] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
     const [showProfile, setShowProfile] = useState(null);
     const [showCreateRoom, setShowCreateRoom] = useState(false);
@@ -44,15 +48,18 @@ export default function ClientLayout({ children }) {
 
     useEffect(() => {
         setMounted(true);
-        try {
-            const profile = JSON.parse(localStorage.getItem('coupchat-profile') || 'null');
-            if (!profile?.name || !profile?.gender || !profile?.age) {
+        // Only show welcome modal for guests who haven't set up profile
+        if (isGuest) {
+            try {
+                const profile = JSON.parse(localStorage.getItem('coupchat-profile') || 'null');
+                if (!profile?.name || !profile?.gender || !profile?.age) {
+                    setShowWelcome(true);
+                }
+            } catch (e) {
                 setShowWelcome(true);
             }
-        } catch (e) {
-            setShowWelcome(true);
         }
-    }, []);
+    }, [isGuest]);
 
     useEffect(() => {
         if (!socket) return;
@@ -87,8 +94,9 @@ export default function ClientLayout({ children }) {
         } else if (page === 'live') {
             router.push('/live');
         } else if (page === 'private') {
-            // We need a specific route for the random stranger matching pool
             router.push('/private');
+        } else if (page === 'games') {
+            router.push('/games');
         }
     }, [router]);
 
@@ -105,7 +113,24 @@ export default function ClientLayout({ children }) {
     }, [router]);
 
     if (!mounted) {
-        return <div className="flex h-[100dvh] w-[100dvw] bg-[var(--bg-primary)]"></div>; // Prevent hydration mismatch Flash
+        return <div className="flex h-[100dvh] w-[100dvw] bg-[var(--bg-primary)]"></div>;
+    }
+
+    // Show loading while checking auth state
+    if (authLoading) {
+        return (
+            <div className="flex h-[100dvh] w-[100dvw] items-center justify-center" style={{ background: 'var(--gradient-bg)' }}>
+                <div className="text-center animate-bounce-in">
+                    <img src="/logo.png" alt="CoupChat" className="w-16 h-16 rounded-2xl mx-auto mb-4 object-cover shadow-2xl" />
+                    <div className="w-8 h-8 rounded-full border-3 border-[var(--accent)] border-t-transparent animate-spin mx-auto" />
+                </div>
+            </div>
+        );
+    }
+
+    // Show auth page if user hasn't logged in (neither guest nor registered)
+    if (!authReady && !isGuest && !authUser) {
+        return <AuthPage />;
     }
 
     if (showWelcome) {

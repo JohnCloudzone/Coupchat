@@ -3,7 +3,7 @@ import Script from 'next/script';
 import dynamic from 'next/dynamic';
 
 const ThemeProvider = dynamic(() => import('@/context/ThemeContext').then(mod => mod.ThemeProvider), { ssr: false });
-
+const AuthProvider = dynamic(() => import('@/context/AuthContext').then(mod => mod.AuthProvider), { ssr: false });
 const SocketProvider = dynamic(() => import('@/context/SocketContext').then(mod => mod.SocketProvider), { ssr: false });
 const ClientLayout = dynamic(() => import('./ClientLayout'), { ssr: false });
 
@@ -72,11 +72,13 @@ export default function RootLayout({ children }) {
             </head>
             <body className="antialiased">
                 <ThemeProvider>
-                    <SocketProvider>
-                        <ClientLayout>
-                            {children}
-                        </ClientLayout>
-                    </SocketProvider>
+                    <AuthProvider>
+                        <SocketProvider>
+                            <ClientLayout>
+                                {children}
+                            </ClientLayout>
+                        </SocketProvider>
+                    </AuthProvider>
                 </ThemeProvider>
             </body>
         </html>
