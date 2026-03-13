@@ -142,7 +142,12 @@ export default function ClientLayout({ children }) {
     }
 
     return (
-        <NavigationContext.Provider value={{ onNavigate: navigateTo, onZoom: (url) => setZoomImage(url || user?.avatar || '') }}>
+        <NavigationContext.Provider value={{
+            onNavigate: navigateTo,
+            onStartDM: handleStartDM,
+            onViewProfile: handleViewProfile,
+            onZoom: (url) => setZoomImage(url || user?.avatar || '')
+        }}>
             <div className="flex h-[100dvh] w-[100dvw] overflow-hidden">
                 <Sidebar
                     currentPage={currentPage}

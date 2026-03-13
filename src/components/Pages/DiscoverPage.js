@@ -3,9 +3,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSocket } from '@/context/SocketContext';
 import { useNavigation } from '@/app/ClientLayout';
 
-export default function DiscoverPage({ onNavigate: propNavigate, onStartDM, onViewProfile }) {
-    const { onNavigate: contextNavigate } = useNavigation();
+export default function DiscoverPage({ onNavigate: propNavigate, onStartDM: propStartDM, onViewProfile: propViewProfile }) {
+    const { onNavigate: contextNavigate, onStartDM: contextStartDM, onViewProfile: contextViewProfile } = useNavigation();
     const onNavigate = propNavigate || contextNavigate;
+    const onStartDM = propStartDM || contextStartDM;
+    const onViewProfile = propViewProfile || contextViewProfile;
     const { socket, user, rooms, onlineCount, conversations, totalUnread } = useSocket();
     const [tab, setTab] = useState('all');
     const [search, setSearch] = useState('');

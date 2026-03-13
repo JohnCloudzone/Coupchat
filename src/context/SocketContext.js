@@ -13,47 +13,31 @@ export function SocketProvider({ children }) {
     const [connected, setConnected] = useState(false);
     const [onlineCount, setOnlineCount] = useState(0);
     const [user, setUser] = useState(null);
-    const [rooms, setRooms] = useState([
+    const [rooms, setRooms] = useState([]);
+    const defaultRooms = [
         // General
-        { id: 'general', name: '💬 General Chat', category: 'General', description: 'Talk about anything!', icon: '💬', userCount: Math.floor(Math.random() * 40) + 15 },
-        { id: 'chill', name: '🧊 Chill Lounge', category: 'General', description: 'Relax and vibe', icon: '🧊', userCount: Math.floor(Math.random() * 25) + 10 },
-        { id: 'night-owls', name: '🦉 Night Owls', category: 'General', description: 'Late night conversations', icon: '🦉', userCount: Math.floor(Math.random() * 20) + 5 },
+        { id: 'general', name: '💬 General Chat', category: 'General', description: 'Talk about anything!', icon: '💬', userCount: 15 },
+        { id: 'chill', name: '🧊 Chill Lounge', category: 'General', description: 'Relax and vibe', icon: '🧊', userCount: 10 },
+        { id: 'night-owls', name: '🦉 Night Owls', category: 'General', description: 'Late night conversations', icon: '🦉', userCount: 5 },
         // Social
-        { id: 'dating', name: '❤️ Dating & Flirting', category: 'Social', description: 'Find your match', icon: '❤️', userCount: Math.floor(Math.random() * 50) + 20 },
-        { id: 'confessions', name: '🤫 Confessions', category: 'Social', description: 'Share your secrets anonymously', icon: '🤫', userCount: Math.floor(Math.random() * 30) + 10 },
-        { id: 'friendship', name: '🤝 Make Friends', category: 'Social', description: 'Find lifelong friends', icon: '🤝', userCount: Math.floor(Math.random() * 20) + 8 },
+        { id: 'dating', name: '❤️ Dating & Flirting', category: 'Social', description: 'Find your match', icon: '❤️', userCount: 20 },
+        { id: 'confessions', name: '🤫 Confessions', category: 'Social', description: 'Share your secrets anonymously', icon: '🤫', userCount: 10 },
+        { id: 'friendship', name: '🤝 Make Friends', category: 'Social', description: 'Find lifelong friends', icon: '🤝', userCount: 8 },
         // Gaming
-        { id: 'gaming', name: '🎮 Gaming', category: 'Gaming', description: 'Gamers unite!', icon: '🎮', userCount: Math.floor(Math.random() * 35) + 12 },
-        { id: 'valorant', name: '🔫 Valorant', category: 'Gaming', description: 'Talk strats and find teammates', icon: '🔫', userCount: Math.floor(Math.random() * 20) + 5 },
-        { id: 'minecraft', name: '⛏️ Minecraft', category: 'Gaming', description: 'Build together', icon: '⛏️', userCount: Math.floor(Math.random() * 15) + 4 },
+        { id: 'gaming', name: '🎮 Gaming', category: 'Gaming', description: 'Gamers unite!', icon: '🎮', userCount: 12 },
+        { id: 'valorant', name: '🔫 Valorant', category: 'Gaming', description: 'Talk strats and find teammates', icon: '🔫', userCount: 5 },
+        { id: 'minecraft', name: '⛏️ Minecraft', category: 'Gaming', description: 'Build together', icon: '⛏️', userCount: 4 },
         // Regional
-        { id: 'india', name: '🇮🇳 India Connect', category: 'Regional', description: 'Desi chat room', icon: '🇮🇳', userCount: Math.floor(Math.random() * 60) + 25 },
-        { id: 'usa', name: '🇺🇸 USA Chat', category: 'Regional', description: 'American vibes', icon: '🇺🇸', userCount: Math.floor(Math.random() * 30) + 10 },
-        { id: 'hindi', name: '🗣️ Hindi Chat', category: 'Regional', description: 'हिंदी में बात करो', icon: '🗣️', userCount: Math.floor(Math.random() * 40) + 15 },
+        { id: 'india', name: '🇮🇳 India Connect', category: 'Regional', description: 'Desi chat room', icon: '🇮🇳', userCount: 25 },
+        { id: 'hindi', name: '🗣️ Hindi Chat', category: 'Regional', description: 'हिंदी में बात करो', icon: '🗣️', userCount: 15 },
         // Entertainment
-        { id: 'anime', name: '🔥 Anime & Manga', category: 'Entertainment', description: 'Otaku paradise', icon: '🔥', userCount: Math.floor(Math.random() * 25) + 10 },
-        { id: 'music', name: '🎵 Music Lovers', category: 'Entertainment', description: 'Share your playlists', icon: '🎵', userCount: Math.floor(Math.random() * 20) + 8 },
-        { id: 'movies', name: '🎬 Movies & Shows', category: 'Entertainment', description: 'What are you watching?', icon: '🎬', userCount: Math.floor(Math.random() * 18) + 6 },
-        { id: 'memes', name: '😂 Memes', category: 'Entertainment', description: 'Share the funniest memes', icon: '😂', userCount: Math.floor(Math.random() * 30) + 12 },
-        // Tech
-        { id: 'coding', name: '💻 Coding', category: 'Tech', description: 'Programming talk', icon: '💻', userCount: Math.floor(Math.random() * 15) + 5 },
-        { id: 'tech-news', name: '📱 Tech News', category: 'Tech', description: 'Latest in technology', icon: '📱', userCount: Math.floor(Math.random() * 12) + 4 },
-        // Creative
-        { id: 'art', name: '🎨 Art & Design', category: 'Creative', description: 'Show off your creativity', icon: '🎨', userCount: Math.floor(Math.random() * 10) + 3 },
-        { id: 'photography', name: '📸 Photography', category: 'Creative', description: 'Share your shots', icon: '📸', userCount: Math.floor(Math.random() * 8) + 2 },
-        // Education
-        { id: 'study', name: '📚 Study Group', category: 'Education', description: 'Study together', icon: '📚', userCount: Math.floor(Math.random() * 12) + 4 },
-        { id: 'language', name: '🌍 Language Exchange', category: 'Education', description: 'Learn new languages', icon: '🌍', userCount: Math.floor(Math.random() * 10) + 3 },
-        // Sports
-        { id: 'cricket', name: '🏏 Cricket', category: 'Sports', description: 'IPL, World Cup & more', icon: '🏏', userCount: Math.floor(Math.random() * 25) + 10 },
-        { id: 'football', name: '⚽ Football', category: 'Sports', description: 'The beautiful game', icon: '⚽', userCount: Math.floor(Math.random() * 20) + 8 },
-        // Lifestyle
-        { id: 'fitness', name: '💪 Fitness', category: 'Lifestyle', description: 'Health and workout tips', icon: '💪', userCount: Math.floor(Math.random() * 10) + 3 },
-        { id: 'food', name: '🍕 Foodies', category: 'Lifestyle', description: 'Share recipes and food pics', icon: '🍕', userCount: Math.floor(Math.random() * 12) + 4 },
+        { id: 'anime', name: '🔥 Anime & Manga', category: 'Entertainment', description: 'Otaku paradise', icon: '🔥', userCount: 10 },
+        { id: 'music', name: '🎵 Music Lovers', category: 'Entertainment', description: 'Share your playlists', icon: '🎵', userCount: 8 },
+        { id: 'memes', name: '😂 Memes', category: 'Entertainment', description: 'Share the funniest memes', icon: '😂', userCount: 12 },
         // 18+
-        { id: 'adults-only', name: '🔞 Adults Only', category: '18+', description: 'Age restricted chat', icon: '🔞', userCount: Math.floor(Math.random() * 35) + 15, nsfw: true },
-        { id: 'roleplay', name: '🎭 Roleplay', category: '18+', description: 'Creative roleplay', icon: '🎭', userCount: Math.floor(Math.random() * 20) + 8, nsfw: true },
-    ]);
+        { id: 'adults-only', name: '🔞 Adults Only', category: '18+', description: 'Age restricted chat', icon: '🔞', userCount: 15, nsfw: true },
+        { id: 'roleplay', name: '🎭 Roleplay', category: '18+', description: 'Creative roleplay', icon: '🎭', userCount: 8, nsfw: true },
+    ];
     const [notifications, setNotifications] = useState([]);
     const [conversations, setConversations] = useState([]);
     const [totalUnread, setTotalUnread] = useState(0);
@@ -196,7 +180,28 @@ export function SocketProvider({ children }) {
                 if (!channel) return;
 
                 const bots = getBotProfiles();
-                if (event === 'get-all-online-users' || event === 'get-online-users') {
+                if (event === 'create-room') {
+                    const roomId = data.name.toLowerCase().replace(/\s+/g, '-');
+                    const newRoom = {
+                        id: roomId,
+                        name: data.name,
+                        topic: data.topic,
+                        category: 'Custom',
+                        description: data.topic,
+                        icon: '🏠',
+                        creator_id: userRef.current.guestId,
+                        is_private: data.isPrivate,
+                        max_users: data.maxUsers
+                    };
+
+                    const { error } = await supabase.from('rooms').insert(newRoom);
+                    if (!error) {
+                        setRooms(prev => [newRoom, ...prev]);
+                        triggerEvent('room-created', { room: newRoom });
+                    } else {
+                        triggerEvent('room-create-error', { error: 'Failed to create room in database' });
+                    }
+                } else if (event === 'get-all-online-users' || event === 'get-online-users') {
                     const state = channel.presenceState();
                     const realUsers = Object.values(state).map(arr => arr[0]);
                     const mergedUsers = [...realUsers, ...bots];
@@ -229,7 +234,7 @@ export function SocketProvider({ children }) {
                         });
                     }
                 } else if (event === 'join-room') {
-                    const roomId = data || 'general';
+                    const roomId = (data?.id || data) || 'general';
                     const roomBots = getBotsForRoom(roomId, 8);
                     triggerEvent('system-message', { text: 'You joined the room', type: 'system', roomId });
                     const { data: history } = await supabase.from('messages').select('*').eq('room_id', roomId).order('created_at', { ascending: false }).limit(50);
@@ -257,6 +262,12 @@ export function SocketProvider({ children }) {
             }
         };
         setSocket(mockSocket);
+
+        const loadRooms = async () => {
+            const { data } = await supabase.from('rooms').select('*').order('created_at', { ascending: false });
+            setRooms([...defaultRooms, ...(data || [])]);
+        };
+        loadRooms();
 
         return () => {
             supabase.removeChannel(globalChannel);
