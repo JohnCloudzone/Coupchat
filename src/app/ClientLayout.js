@@ -19,6 +19,9 @@ import AuthPage from '@/app/auth/page';
 export const CallContext = createContext();
 export const useCallContext = () => useContext(CallContext);
 
+export const NavigationContext = createContext();
+export const useNavigation = () => useContext(NavigationContext);
+
 export default function ClientLayout({ children }) {
     const pathname = usePathname();
     const router = useRouter();
@@ -42,9 +45,10 @@ export default function ClientLayout({ children }) {
     const [showMenu, setShowMenu] = useState(false);
     const [showProfile, setShowProfile] = useState(null);
     const [showCreateRoom, setShowCreateRoom] = useState(false);
+    const [zoomImage, setZoomImage] = useState(null);
     const [mounted, setMounted] = useState(false);
 
-    const { socket, notifications, dismissNotification, updateProfile } = useSocket();
+    const { socket, user, notifications, dismissNotification, updateProfile } = useSocket();
 
     useEffect(() => {
         setMounted(true);
@@ -138,50 +142,69 @@ export default function ClientLayout({ children }) {
     }
 
     return (
-        <div className="flex h-[100dvh] w-[100dvw] overflow-hidden">
-            <Sidebar currentPage={currentPage} onNavigate={navigateTo} onMenuToggle={() => setShowMenu(true)} />
+        <NavigationContext.Provider value={{ onNavigate: navigateTo, onZoom: (url) => setZoomImage(url || user?.avatar || '') }}>
+            <div className="flex h-[100dvh] w-[100dvw] overflow-hidden">
+                <Sidebar
+                    currentPage={currentPage}
+                    onNavigate={navigateTo}
+                    onMenuToggle={() => setShowMenu(true)}
+                    onZoom={() => setZoomImage(user?.avatar || '')}
+                />
 
-            <div className="flex-1 flex flex-col min-w-0 h-full">
-                <Header currentPage={currentPage} room={null} onMenuToggle={() => setShowMenu(true)} />
-                <main className="flex-1 overflow-hidden">
-                    <CallContext.Provider value={{ setCallState }}>
-                        {children}
-                    </CallContext.Provider>
-                </main>
+                <div className="flex-1 flex flex-col min-w-0 h-full">
+                    <Header currentPage={currentPage} room={null} onMenuToggle={() => setShowMenu(true)} />
+                    <main className="flex-1 overflow-hidden">
+                        <CallContext.Provider value={{ setCallState }}>
+                            {children}
+                        </CallContext.Provider>
+                    </main>
+                </div>
+
+                <div className={`block md:hidden ${['dm', 'room-chat'].includes(currentPage) ? 'hidden' : ''}`}>
+                    <MobileNav currentPage={currentPage} onNavigate={navigateTo} />
+                </div>
+
+                <NotificationToast notifications={notifications} onDismiss={dismissNotification} onOpenChat={handleStartDM} />
+                <HamburgerMenu isOpen={showMenu} onClose={() => setShowMenu(false)} onNavigate={navigateTo} />
+
+                {showProfile && (
+                    <ProfileModal
+                        profile={showProfile}
+                        onClose={() => setShowProfile(null)}
+                        onChat={handleChatFromProfile}
+                        onAddFriend={(guestId) => socket?.emit('add-friend', { targetGuestId: guestId })}
+                        onBlock={(guestId) => socket?.emit('block-user', { targetGuestId: guestId })}
+                    />
+                )}
+
+                {showCreateRoom && (
+                    <CreateRoomModal
+                        onClose={() => setShowCreateRoom(false)}
+                        onCreated={(room) => router.push(`/rooms/${room.id}`)}
+                    />
+                )}
+
+                {zoomImage && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+                        onClick={() => setZoomImage(null)}>
+                        <div className="relative max-w-full max-h-full animate-bounce-in" onClick={e => e.stopPropagation()}>
+                            <img src={zoomImage} alt="Zoom" className="max-w-[90vw] max-h-[90vh] rounded-2xl object-contain shadow-2xl border-4 border-[var(--accent)]" />
+                            <button onClick={() => setZoomImage(null)} className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {callState && <CallPanel callState={callState} onEnd={() => setCallState(null)} />}
+                {incomingCall && (
+                    <CallNotification
+                        call={incomingCall}
+                        onAccept={(data) => { setCallState(data); setIncomingCall(null); }}
+                        onReject={() => setIncomingCall(null)}
+                    />
+                )}
             </div>
-
-            <div className={`block md:hidden ${['dm', 'room-chat'].includes(currentPage) ? 'hidden' : ''}`}>
-                <MobileNav currentPage={currentPage} onNavigate={navigateTo} />
-            </div>
-
-            <NotificationToast notifications={notifications} onDismiss={dismissNotification} onOpenChat={handleStartDM} />
-            <HamburgerMenu isOpen={showMenu} onClose={() => setShowMenu(false)} onNavigate={navigateTo} />
-
-            {showProfile && (
-                <ProfileModal
-                    profile={showProfile}
-                    onClose={() => setShowProfile(null)}
-                    onChat={handleChatFromProfile}
-                    onAddFriend={(guestId) => socket?.emit('add-friend', { targetGuestId: guestId })}
-                    onBlock={(guestId) => socket?.emit('block-user', { targetGuestId: guestId })}
-                />
-            )}
-
-            {showCreateRoom && (
-                <CreateRoomModal
-                    onClose={() => setShowCreateRoom(false)}
-                    onCreated={(room) => router.push(`/rooms/${room.id}`)}
-                />
-            )}
-
-            {callState && <CallPanel callState={callState} onEnd={() => setCallState(null)} />}
-            {incomingCall && (
-                <CallNotification
-                    call={incomingCall}
-                    onAccept={(data) => { setCallState(data); setIncomingCall(null); }}
-                    onReject={() => setIncomingCall(null)}
-                />
-            )}
-        </div>
+        </NavigationContext.Provider>
     );
 }

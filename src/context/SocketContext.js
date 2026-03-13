@@ -107,7 +107,13 @@ export function SocketProvider({ children }) {
             localStorage.setItem('coupchat-guestName', guestName);
         }
 
-        const currentUser = { guestId, name: profile?.name || guestName, gender: profile?.gender || '', age: profile?.age || '' };
+        const currentUser = {
+            guestId,
+            name: profile?.name || guestName,
+            gender: profile?.gender || '',
+            age: profile?.age || '',
+            avatar: profile?.avatar || ''
+        };
         setUser(currentUser);
 
         // Supabase Global Presence Channel
@@ -428,7 +434,7 @@ export function SocketProvider({ children }) {
     const updateProfile = useCallback((p) => {
         localStorage.setItem('coupchat-profile', JSON.stringify(p));
         localStorage.setItem('coupchat-guestName', p.name);
-        const newUser = { ...user, name: p.name, gender: p.gender, age: p.age };
+        const newUser = { ...user, name: p.name, gender: p.gender, age: p.age, avatar: p.avatar };
         setUser(newUser);
         if (channelRef.current && channelRef.current.state === 'joined') {
             channelRef.current.track(newUser);

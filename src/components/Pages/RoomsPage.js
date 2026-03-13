@@ -1,11 +1,14 @@
 'use client';
 import { useSocket } from '@/context/SocketContext';
 import { useState, useMemo } from 'react';
+import { useNavigation } from '@/app/ClientLayout';
 
 const CATEGORIES = ['All', 'General', 'Social', 'Regional', 'Entertainment', 'Tech', 'Creative', 'Education', 'Sports', 'Lifestyle', '18+'];
 
-export default function RoomsPage({ onNavigate }) {
+export default function RoomsPage({ onNavigate: propNavigate }) {
     const { rooms } = useSocket();
+    const { onNavigate: contextNavigate } = useNavigation();
+    const onNavigate = propNavigate || contextNavigate;
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
 

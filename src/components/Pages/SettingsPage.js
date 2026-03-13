@@ -3,9 +3,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useSocket } from '@/context/SocketContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useNavigation } from '@/app/ClientLayout';
 
 export default function SettingsPage() {
     const { user, updateName } = useSocket();
+    const { onNavigate, onZoom } = useNavigation();
     const { theme, setTheme, themes } = useTheme();
     const { authUser, isGuest, uploadAvatar, signOut } = useAuth();
     const [displayName, setDisplayName] = useState('');
@@ -88,7 +90,8 @@ export default function SettingsPage() {
                                 <img
                                     src={avatarUrl || getDefaultAvatar()}
                                     alt={user?.name || 'Avatar'}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                                    onClick={() => onZoom(avatarUrl || getDefaultAvatar())}
                                 />
                             </div>
                             <button

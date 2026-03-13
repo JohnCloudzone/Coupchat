@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from '@/context/SocketContext';
+import { useNavigation } from '@/app/ClientLayout';
 
 // ==================== TRUTH OR DARE ====================
 const TRUTHS = [
@@ -315,6 +316,7 @@ const GAMES = [
 
 export default function GamesPage() {
     const [activeGame, setActiveGame] = useState(null);
+    const { onNavigate } = useNavigation();
     const { user } = useSocket();
 
     if (activeGame) {

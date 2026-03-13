@@ -63,12 +63,11 @@ export default function RootLayout({ children }) {
                 <meta name="google-adsense-account" content="ca-pub-5491152751655483" />
 
                 {/* Google AdSense Integration */}
-                <Script
+                <script
                     async
                     src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5491152751655483"
                     crossOrigin="anonymous"
-                    strategy="afterInteractive"
-                />
+                ></script>
             </head>
             <body className="antialiased">
                 <ThemeProvider>

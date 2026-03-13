@@ -1,10 +1,13 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from '@/context/SocketContext';
+import { useNavigation } from '@/app/ClientLayout';
 import MessageFeed from '@/components/Chat/MessageFeed';
 import MessageInput from '@/components/Chat/MessageInput';
 
-export default function FriendsPage({ onNavigate, onStartDM, onViewProfile }) {
+export default function FriendsPage({ onNavigate: propNavigate, onStartDM, onViewProfile }) {
+    const { onNavigate: contextNavigate } = useNavigation();
+    const onNavigate = propNavigate || contextNavigate;
     const { socket, user, conversations } = useSocket();
     const [friends, setFriends] = useState([]);
     const [friendId, setFriendId] = useState('');

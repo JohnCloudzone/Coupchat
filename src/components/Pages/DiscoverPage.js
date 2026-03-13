@@ -1,8 +1,11 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useSocket } from '@/context/SocketContext';
+import { useNavigation } from '@/app/ClientLayout';
 
-export default function DiscoverPage({ onNavigate, onStartDM, onViewProfile }) {
+export default function DiscoverPage({ onNavigate: propNavigate, onStartDM, onViewProfile }) {
+    const { onNavigate: contextNavigate } = useNavigation();
+    const onNavigate = propNavigate || contextNavigate;
     const { socket, user, rooms, onlineCount, conversations, totalUnread } = useSocket();
     const [tab, setTab] = useState('all');
     const [search, setSearch] = useState('');
@@ -126,11 +129,11 @@ export default function DiscoverPage({ onNavigate, onStartDM, onViewProfile }) {
                     <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden relative"
                         style={{ background: 'var(--bg-secondary)' }}>
                         <img
-                            src={user?.gender === 'female'
+                            src={user?.avatar || (user?.gender === 'female'
                                 ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.name}&hairprobability=100&hair=long01,long02,long03,long04`
                                 : user?.gender === 'male'
                                     ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${user?.name}&hairprobability=100&hair=short01,short02,short03`
-                                    : `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.guestId}`
+                                    : `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.guestId}`)
                             }
                             alt={user?.name}
                             className="w-full h-full object-cover"
