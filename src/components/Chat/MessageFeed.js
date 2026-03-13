@@ -72,21 +72,21 @@ export default function MessageFeed({ messages, currentUserId, typingUsers = [],
                                 {/* Username */}
                                 {!isSent && (
                                     <div className="text-xs font-medium mb-0.5 ml-3" style={{ color: 'var(--accent)' }}>
-                                        {msg.userName}
+                                        {msg.from || msg.userName}
                                     </div>
                                 )}
 
                                 {/* Message Bubble */}
                                 <div className={`${isSent ? 'msg-sent' : 'msg-received'} px-4 py-2.5 relative`}>
                                     {/* Image */}
-                                    {msg.image && (
+                                    {(msg.imageUrl || msg.image) && (
                                         <div className="mb-2">
                                             <img
-                                                src={msg.image}
+                                                src={msg.imageUrl || msg.image}
                                                 alt="Shared"
                                                 className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
                                                 style={{ maxHeight: '250px', objectFit: 'cover' }}
-                                                onClick={() => setLightboxImage(msg.image)}
+                                                onClick={() => setLightboxImage(msg.imageUrl || msg.image)}
                                             />
                                         </div>
                                     )}

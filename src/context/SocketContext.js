@@ -236,7 +236,10 @@ export function SocketProvider({ children }) {
                     const roomId = (data?.id || data) || 'general';
                     const roomBots = getBotsForRoom(roomId, 8);
                     triggerEvent('system-message', { text: 'You joined the room', type: 'system', roomId });
-                    const { data: history } = await supabase.from('messages').select('*').eq('room_id', roomId).order('created_at', { ascending: false }).limit(50);
+                    const { data: history, error: historyError } = await supabase.from('messages').select('*').eq('room_id', roomId).order('created_at', { ascending: false }).limit(50);
+                    if (historyError) {
+                        console.error('[CoupChat] Failed to fetch room history:', historyError);
+                    }
                     const formattedHistory = (history || []).reverse().map(m => ({
                         id: m.id, from: m.sender_name, fromGuestId: m.sender_id, text: m.text, timestamp: new Date(m.created_at).getTime(), type: m.type, imageUrl: m.image_url
                     }));
@@ -251,7 +254,10 @@ export function SocketProvider({ children }) {
                     const msgData = { id: Date.now().toString(), from: userRef.current.name, fromGuestId: userRef.current.guestId, text: data.text, timestamp: Date.now(), type: (data.type || (imageUrl ? 'image' : 'text')), imageUrl: imageUrl };
                     const fullPayload = { roomId: data.roomId || 'general', message: msgData };
                     triggerEvent('new-message', fullPayload);
-                    supabase.from('messages').insert({ room_id: data.roomId || 'general', sender_id: userRef.current.guestId, sender_name: userRef.current.name, text: data.text, image_url: imageUrl, type: (data.type || (imageUrl ? 'image' : 'text')) });
+                    const { error: insertError } = await supabase.from('messages').insert({ room_id: data.roomId || 'general', sender_id: userRef.current.guestId, sender_name: userRef.current.name, text: data.text, image_url: imageUrl || null, type: (data.type || (imageUrl ? 'image' : 'text')) });
+                    if (insertError) {
+                        console.error('[CoupChat] Failed to save message:', insertError);
+                    }
                     const roomBots = getBotsForRoom(data.roomId || 'general', 8);
                     setTimeout(() => {
                         const bot = roomBots[Math.floor(Math.random() * roomBots.length)];
