@@ -88,6 +88,12 @@ export function SocketProvider({ children }) {
         setNotifications(prev => prev.filter(n => n.id !== id));
     }, []);
 
+    const triggerEvent = useCallback((eventName, payload) => {
+        if (eventEmitterRef.current[eventName]) {
+            eventEmitterRef.current[eventName].forEach(cb => cb(payload));
+        }
+    }, []);
+
     useEffect(() => {
         let guestId = localStorage.getItem('coupchat-guestId');
         let guestName = localStorage.getItem('coupchat-guestName');
@@ -122,12 +128,6 @@ export function SocketProvider({ children }) {
         const globalChannel = supabase.channel('global:presence', {
             config: { presence: { key: guestId } }
         });
-
-        const triggerEvent = (eventName, payload) => {
-            if (eventEmitterRef.current[eventName]) {
-                eventEmitterRef.current[eventName].forEach(cb => cb(payload));
-            }
-        };
 
         const allBots = getBotProfiles();
         const botCount = allBots.length;
@@ -178,7 +178,9 @@ export function SocketProvider({ children }) {
         return () => {
             supabase.removeChannel(globalChannel);
         };
-    }, []);
+    }, [triggerEvent]);
+
+    // Effect to sync socket user with AuthContext profile
 
     // Effect to sync socket user with AuthContext profile
     useEffect(() => {
@@ -218,9 +220,7 @@ export function SocketProvider({ children }) {
             loadConversations();
         }
 
-        channelRef.current = globalChannel;
-
-        // The Mock Socket wraps Supabase to prevent breaking 25+ components
+        const allBots = getBotProfiles();
         const mockSocket = {
             id: guestId,
             on: (event, callback) => {
@@ -244,7 +244,10 @@ export function SocketProvider({ children }) {
             },
             emit: async (event, data) => {
                 // Determine how to route the emitted event
+                const globalChannel = channelRef.current;
+                if (!globalChannel) return;
 
+                const allBots = getBotProfiles();
                 // --- 1. Purely Local App State Requests ---
                 if (event === 'get-all-online-users' || event === 'get-online-users') {
                     const state = globalChannel.presenceState();
@@ -290,8 +293,8 @@ export function SocketProvider({ children }) {
                         if (data.conversationId) {
                             supabase.from('dm_messages').insert({
                                 conversation_id: data.conversationId,
-                                sender_id: currentUser.guestId,
-                                sender_name: currentUser.name,
+                                sender_id: userRef.current.guestId,
+                                sender_name: userRef.current.name,
                                 text: data.text,
                                 image_url: data.imageUrl,
                                 type: data.type || 'text'
@@ -319,7 +322,7 @@ export function SocketProvider({ children }) {
                     let { data: convo } = await supabase
                         .from('conversations')
                         .select('*')
-                        .or(`and(participant_a.eq.${currentUser.guestId},participant_b.eq.${targetId}),and(participant_a.eq.${targetId},participant_b.eq.${currentUser.guestId})`)
+                        .or(`and(participant_a.eq.${userRef.current.guestId},participant_b.eq.${targetId}),and(participant_a.eq.${targetId},participant_b.eq.${userRef.current.guestId})`)
                         .single();
 
                     if (!convo) {
@@ -327,7 +330,7 @@ export function SocketProvider({ children }) {
                         const { data: newConvo } = await supabase
                             .from('conversations')
                             .insert({
-                                participant_a: currentUser.guestId,
+                                participant_a: userRef.current.guestId,
                                 participant_b: targetId,
                                 last_message: 'Started a conversation'
                             })
