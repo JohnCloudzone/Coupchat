@@ -247,10 +247,11 @@ export function SocketProvider({ children }) {
                         triggerEvent('new-message', { roomId, message: { id: 'bot_' + Date.now(), from: bot.name, fromGuestId: bot.guestId, text: `Hey ${userRef.current.name}! Welcome to the room 👋`, timestamp: Date.now(), type: 'text' } });
                     }, 1500);
                 } else if (event === 'send-message') {
-                    const msgData = { id: Date.now().toString(), from: userRef.current.name, fromGuestId: userRef.current.guestId, text: data.text, timestamp: Date.now(), type: data.type || 'text', imageUrl: data.image };
+                    const imageUrl = data.image || data.imageUrl; // Support both sent by UI
+                    const msgData = { id: Date.now().toString(), from: userRef.current.name, fromGuestId: userRef.current.guestId, text: data.text, timestamp: Date.now(), type: (data.type || (imageUrl ? 'image' : 'text')), imageUrl: imageUrl };
                     const fullPayload = { roomId: data.roomId || 'general', message: msgData };
                     triggerEvent('new-message', fullPayload);
-                    supabase.from('messages').insert({ room_id: data.roomId || 'general', sender_id: userRef.current.guestId, sender_name: userRef.current.name, text: data.text, image_url: data.image, type: data.type || 'text' });
+                    supabase.from('messages').insert({ room_id: data.roomId || 'general', sender_id: userRef.current.guestId, sender_name: userRef.current.name, text: data.text, image_url: imageUrl, type: (data.type || (imageUrl ? 'image' : 'text')) });
                     const roomBots = getBotsForRoom(data.roomId || 'general', 8);
                     setTimeout(() => {
                         const bot = roomBots[Math.floor(Math.random() * roomBots.length)];
