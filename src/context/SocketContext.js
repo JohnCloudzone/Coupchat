@@ -181,7 +181,7 @@ export function SocketProvider({ children }) {
 
                 const bots = getBotProfiles();
                 if (event === 'create-room') {
-                    const roomId = data.name.toLowerCase().replace(/\s+/g, '-');
+                    const roomId = `${data.name.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`;
                     const newRoom = {
                         id: roomId,
                         name: data.name,
