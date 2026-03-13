@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { getBotProfiles, getBotsForRoom, getRandomBotReply } from '@/lib/botProfiles';
 
 const SocketContext = createContext();
 
@@ -11,10 +12,45 @@ export function SocketProvider({ children }) {
     const [onlineCount, setOnlineCount] = useState(0);
     const [user, setUser] = useState(null);
     const [rooms, setRooms] = useState([
-        { id: 'general', name: '💬 General Chat', category: 'General', description: 'Talk about anything!', icon: '💬', userCount: 0 },
-        { id: 'gaming', name: '🎮 Gaming', category: 'Gaming', description: 'Gamers unite!', icon: '🎮', userCount: 0 },
-        { id: 'dating', name: '❤️ Dating & Flirting', category: 'Social', description: 'Find your match', icon: '❤️', userCount: 0 },
-        { id: 'india', name: '🇮🇳 India Connect', category: 'Regional', description: 'Desi chat room', icon: '🇮🇳', userCount: 0 },
+        // General
+        { id: 'general', name: '💬 General Chat', category: 'General', description: 'Talk about anything!', icon: '💬', userCount: Math.floor(Math.random() * 40) + 15 },
+        { id: 'chill', name: '🧊 Chill Lounge', category: 'General', description: 'Relax and vibe', icon: '🧊', userCount: Math.floor(Math.random() * 25) + 10 },
+        { id: 'night-owls', name: '🦉 Night Owls', category: 'General', description: 'Late night conversations', icon: '🦉', userCount: Math.floor(Math.random() * 20) + 5 },
+        // Social
+        { id: 'dating', name: '❤️ Dating & Flirting', category: 'Social', description: 'Find your match', icon: '❤️', userCount: Math.floor(Math.random() * 50) + 20 },
+        { id: 'confessions', name: '🤫 Confessions', category: 'Social', description: 'Share your secrets anonymously', icon: '🤫', userCount: Math.floor(Math.random() * 30) + 10 },
+        { id: 'friendship', name: '🤝 Make Friends', category: 'Social', description: 'Find lifelong friends', icon: '🤝', userCount: Math.floor(Math.random() * 20) + 8 },
+        // Gaming
+        { id: 'gaming', name: '🎮 Gaming', category: 'Gaming', description: 'Gamers unite!', icon: '🎮', userCount: Math.floor(Math.random() * 35) + 12 },
+        { id: 'valorant', name: '🔫 Valorant', category: 'Gaming', description: 'Talk strats and find teammates', icon: '🔫', userCount: Math.floor(Math.random() * 20) + 5 },
+        { id: 'minecraft', name: '⛏️ Minecraft', category: 'Gaming', description: 'Build together', icon: '⛏️', userCount: Math.floor(Math.random() * 15) + 4 },
+        // Regional
+        { id: 'india', name: '🇮🇳 India Connect', category: 'Regional', description: 'Desi chat room', icon: '🇮🇳', userCount: Math.floor(Math.random() * 60) + 25 },
+        { id: 'usa', name: '🇺🇸 USA Chat', category: 'Regional', description: 'American vibes', icon: '🇺🇸', userCount: Math.floor(Math.random() * 30) + 10 },
+        { id: 'hindi', name: '🗣️ Hindi Chat', category: 'Regional', description: 'हिंदी में बात करो', icon: '🗣️', userCount: Math.floor(Math.random() * 40) + 15 },
+        // Entertainment
+        { id: 'anime', name: '🔥 Anime & Manga', category: 'Entertainment', description: 'Otaku paradise', icon: '🔥', userCount: Math.floor(Math.random() * 25) + 10 },
+        { id: 'music', name: '🎵 Music Lovers', category: 'Entertainment', description: 'Share your playlists', icon: '🎵', userCount: Math.floor(Math.random() * 20) + 8 },
+        { id: 'movies', name: '🎬 Movies & Shows', category: 'Entertainment', description: 'What are you watching?', icon: '🎬', userCount: Math.floor(Math.random() * 18) + 6 },
+        { id: 'memes', name: '😂 Memes', category: 'Entertainment', description: 'Share the funniest memes', icon: '😂', userCount: Math.floor(Math.random() * 30) + 12 },
+        // Tech
+        { id: 'coding', name: '💻 Coding', category: 'Tech', description: 'Programming talk', icon: '💻', userCount: Math.floor(Math.random() * 15) + 5 },
+        { id: 'tech-news', name: '📱 Tech News', category: 'Tech', description: 'Latest in technology', icon: '📱', userCount: Math.floor(Math.random() * 12) + 4 },
+        // Creative
+        { id: 'art', name: '🎨 Art & Design', category: 'Creative', description: 'Show off your creativity', icon: '🎨', userCount: Math.floor(Math.random() * 10) + 3 },
+        { id: 'photography', name: '📸 Photography', category: 'Creative', description: 'Share your shots', icon: '📸', userCount: Math.floor(Math.random() * 8) + 2 },
+        // Education
+        { id: 'study', name: '📚 Study Group', category: 'Education', description: 'Study together', icon: '📚', userCount: Math.floor(Math.random() * 12) + 4 },
+        { id: 'language', name: '🌍 Language Exchange', category: 'Education', description: 'Learn new languages', icon: '🌍', userCount: Math.floor(Math.random() * 10) + 3 },
+        // Sports
+        { id: 'cricket', name: '🏏 Cricket', category: 'Sports', description: 'IPL, World Cup & more', icon: '🏏', userCount: Math.floor(Math.random() * 25) + 10 },
+        { id: 'football', name: '⚽ Football', category: 'Sports', description: 'The beautiful game', icon: '⚽', userCount: Math.floor(Math.random() * 20) + 8 },
+        // Lifestyle
+        { id: 'fitness', name: '💪 Fitness', category: 'Lifestyle', description: 'Health and workout tips', icon: '💪', userCount: Math.floor(Math.random() * 10) + 3 },
+        { id: 'food', name: '🍕 Foodies', category: 'Lifestyle', description: 'Share recipes and food pics', icon: '🍕', userCount: Math.floor(Math.random() * 12) + 4 },
+        // 18+
+        { id: 'adults-only', name: '🔞 Adults Only', category: '18+', description: 'Age restricted chat', icon: '🔞', userCount: Math.floor(Math.random() * 35) + 15, nsfw: true },
+        { id: 'roleplay', name: '🎭 Roleplay', category: '18+', description: 'Creative roleplay', icon: '🎭', userCount: Math.floor(Math.random() * 20) + 8, nsfw: true },
     ]);
     const [notifications, setNotifications] = useState([]);
     const [conversations, setConversations] = useState([]);
@@ -83,16 +119,20 @@ export function SocketProvider({ children }) {
             }
         };
 
+        const allBots = getBotProfiles();
+        const botCount = allBots.length;
+
         globalChannel
             .on('presence', { event: 'sync' }, () => {
                 const state = globalChannel.presenceState();
-                const count = Object.keys(state).length;
-                setOnlineCount(count > 0 ? count : 1);
+                const realCount = Object.keys(state).length;
+                setOnlineCount((realCount > 0 ? realCount : 1) + botCount);
 
-                // Map presence state to a list of online users
-                const usersList = Object.values(state).map(arr => arr[0]);
-                triggerEvent('online-users-list', { users: usersList });
-                triggerEvent('all-online-users', { users: usersList });
+                // Merge real users with bot profiles
+                const realUsers = Object.values(state).map(arr => arr[0]);
+                const mergedUsers = [...realUsers, ...allBots];
+                triggerEvent('online-users-list', { users: mergedUsers });
+                triggerEvent('all-online-users', { users: mergedUsers });
             })
             .on('broadcast', { event: 'global-event' }, (payload) => {
                 const { type, data, targetGuestId } = payload.payload;
@@ -153,18 +193,20 @@ export function SocketProvider({ children }) {
                 // --- 1. Purely Local App State Requests ---
                 if (event === 'get-all-online-users' || event === 'get-online-users') {
                     const state = globalChannel.presenceState();
-                    const usersList = Object.values(state).map(arr => arr[0]);
-                    triggerEvent(event === 'get-online-users' ? 'online-users-list' : 'all-online-users', { users: usersList });
+                    const realUsers = Object.values(state).map(arr => arr[0]);
+                    const mergedUsers = [...realUsers, ...allBots];
+                    triggerEvent(event === 'get-online-users' ? 'online-users-list' : 'all-online-users', { users: mergedUsers });
                     return;
                 }
 
                 if (event === 'search-users') {
                     const state = globalChannel.presenceState();
                     const q = (data.query || '').toLowerCase();
-                    const usersList = Object.values(state)
-                        .map(arr => arr[0])
+                    const realUsers = Object.values(state).map(arr => arr[0]);
+                    const mergedUsers = [...realUsers, ...allBots];
+                    const filtered = mergedUsers
                         .filter(u => u.name.toLowerCase().includes(q) && u.guestId !== guestId);
-                    triggerEvent('search-results', { results: usersList });
+                    triggerEvent('search-results', { results: filtered });
                     return;
                 }
 
@@ -201,8 +243,22 @@ export function SocketProvider({ children }) {
                 } else if (event === 'start-dm') {
                     triggerEvent('dm-started', { conversation: { id: `dm_${data.targetGuestId}`, participantGuestId: data.targetGuestId, messages: [] } });
                 } else if (event === 'join-room') {
+                    const roomBots = getBotsForRoom(data || 'general', 8);
                     triggerEvent('system-message', { text: 'You joined the room', type: 'system' });
                     triggerEvent('message-history', { messages: [] });
+                    triggerEvent('room-users', { users: [currentUser, ...roomBots] });
+                    // Simulate a bot greeting after a short delay
+                    setTimeout(() => {
+                        const bot = roomBots[Math.floor(Math.random() * roomBots.length)];
+                        triggerEvent('new-message', {
+                            id: 'bot_' + Date.now(),
+                            from: bot.name,
+                            fromGuestId: bot.guestId,
+                            text: `Hey ${currentUser.name}! Welcome to the room 👋`,
+                            timestamp: Date.now(),
+                            type: 'text',
+                        });
+                    }, 1500 + Math.random() * 2000);
                 } else if (event === 'send-message') {
                     // Echo back the message locally so the sender sees it
                     triggerEvent('new-message', {
@@ -214,6 +270,20 @@ export function SocketProvider({ children }) {
                         type: data.type || 'text',
                         imageUrl: data.image
                     });
+                    // Bot auto-reply after 2-5 seconds
+                    const roomBots = getBotsForRoom(data.roomId || 'general', 8);
+                    const replyDelay = 2000 + Math.random() * 3000;
+                    setTimeout(() => {
+                        const bot = roomBots[Math.floor(Math.random() * roomBots.length)];
+                        triggerEvent('new-message', {
+                            id: 'bot_reply_' + Date.now(),
+                            from: bot.name,
+                            fromGuestId: bot.guestId,
+                            text: getRandomBotReply(),
+                            timestamp: Date.now(),
+                            type: 'text',
+                        });
+                    }, replyDelay);
                     // And broadcast to others
                     globalChannel.send({
                         type: 'broadcast',

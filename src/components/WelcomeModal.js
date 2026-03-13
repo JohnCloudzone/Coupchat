@@ -7,6 +7,7 @@ export default function WelcomeModal({ onComplete }) {
     const [age, setAge] = useState('');
     const [step, setStep] = useState(1);
     const [error, setError] = useState('');
+    const [selectedAvatar, setSelectedAvatar] = useState('');
 
     useEffect(() => {
         // Check if already onboarded
@@ -31,6 +32,7 @@ export default function WelcomeModal({ onComplete }) {
             name: name.trim(),
             gender,
             age: parseInt(age),
+            avatar: selectedAvatar,
         };
 
         localStorage.setItem('coupchat-profile', JSON.stringify(profile));
@@ -160,6 +162,36 @@ export default function WelcomeModal({ onComplete }) {
                             onFocus={(e) => e.target.style.borderColor = 'var(--accent)'}
                             onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
                         />
+                    </div>
+
+                    {/* Avatar Selection */}
+                    <div className="mb-6">
+                        <label className="block text-xs font-semibold mb-1.5 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" y1="9" x2="9.01" y2="9" /><line x1="15" y1="9" x2="15.01" y2="9" />
+                            </svg>
+                            Choose Your Avatar
+                        </label>
+                        <div className="grid grid-cols-4 gap-3">
+                            {[...Array(8)].map((_, i) => {
+                                const seed = name ? `${name}${i}` : `avatar${i}`;
+                                const avatarUrl = gender === 'female'
+                                    ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}&hairprobability=100&hair=long01,long02,long03,long04`
+                                    : gender === 'male'
+                                        ? `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}&hairprobability=100&hair=short01,short02,short03`
+                                        : `https://api.dicebear.com/7.x/bottts/svg?seed=${seed}`;
+                                return (
+                                    <button
+                                        key={i}
+                                        type="button"
+                                        onClick={() => setSelectedAvatar(avatarUrl)}
+                                        className={`w-full aspect-square rounded-xl overflow-hidden border-2 transition-all duration-200 hover:scale-105 ${selectedAvatar === avatarUrl ? 'border-[var(--accent)] ring-2 ring-[var(--accent)] ring-opacity-30 scale-105' : 'border-[var(--border)]'}`}
+                                    >
+                                        <img src={avatarUrl} alt={`Avatar ${i + 1}`} className="w-full h-full object-cover bg-[var(--bg-tertiary)]" />
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
 
                     {/* Submit */}
