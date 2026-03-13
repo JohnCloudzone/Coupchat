@@ -185,7 +185,6 @@ export function SocketProvider({ children }) {
                     const newRoom = {
                         id: roomId,
                         name: data.name,
-                        topic: data.topic,
                         category: 'Custom',
                         description: data.topic,
                         icon: '🏠',
