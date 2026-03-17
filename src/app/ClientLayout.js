@@ -12,6 +12,7 @@ import CallPanel from '@/components/Call/CallPanel';
 import CallNotification from '@/components/Call/CallNotification';
 import WelcomeModal from '@/components/WelcomeModal';
 import NotificationToast from '@/components/NotificationToast';
+import RechargeModal from '@/components/RechargeModal';
 import { useSocket } from '@/context/SocketContext';
 import { useAuth } from '@/context/AuthContext';
 import AuthPage from '@/app/auth/page';
@@ -45,6 +46,7 @@ export default function ClientLayout({ children }) {
     const [showMenu, setShowMenu] = useState(false);
     const [showProfile, setShowProfile] = useState(null);
     const [showCreateRoom, setShowCreateRoom] = useState(false);
+    const [showRecharge, setShowRecharge] = useState(false);
     const [zoomImage, setZoomImage] = useState(null);
     const [mounted, setMounted] = useState(false);
 
@@ -101,6 +103,8 @@ export default function ClientLayout({ children }) {
             router.push('/private');
         } else if (page === 'games') {
             router.push('/games');
+        } else if (page === 'recharge') {
+            setShowRecharge(true);
         }
     }, [router]);
 
@@ -209,6 +213,8 @@ export default function ClientLayout({ children }) {
                         onReject={() => setIncomingCall(null)}
                     />
                 )}
+
+                {showRecharge && <RechargeModal onClose={() => setShowRecharge(false)} />}
             </div>
         </NavigationContext.Provider>
     );

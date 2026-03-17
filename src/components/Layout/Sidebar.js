@@ -92,6 +92,10 @@ export default function Sidebar({ currentPage, onNavigate, onMenuToggle, onZoom 
                             <p className="text-[10px] uppercase font-semibold tracking-wider" style={{ color: 'var(--text-muted)' }}>Logged in as</p>
                             <p className="text-xs font-bold truncate" style={{ color: 'var(--accent)' }}>{user.name}</p>
                         </div>
+                        <div className="ml-auto flex items-center gap-1 bg-black/20 rounded-lg px-2 py-1">
+                            <span className="text-xs font-bold text-[var(--accent)]">{user.tokens || 0}</span>
+                            <span className="text-[10px]">🪙</span>
+                        </div>
                     </button>
                 </div>
             )}

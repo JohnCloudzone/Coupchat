@@ -1,18 +1,45 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { useSocket } from '@/context/SocketContext';
 
 export default function CallPanel({ callState, onEnd }) {
+    const { user, spendTokens, addNotification } = useSocket();
     const [duration, setDuration] = useState(0);
     const [isMuted, setIsMuted] = useState(false);
     const [isCameraOff, setIsCameraOff] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
+    const [trialEnded, setTrialEnded] = useState(false);
+    const [isPaying, setIsPaying] = useState(false);
     const timerRef = useRef(null);
+    const deductionRef = useRef(null);
     const localVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
 
+    const TRIAL_SECONDS = 90; // 1.5 mins
+    const COST_PER_MINUTE = 10;
+
     useEffect(() => {
         timerRef.current = setInterval(() => {
-            setDuration(prev => prev + 1);
+            setDuration(prev => {
+                const newDuration = prev + 1;
+
+                // Alert at 60 seconds (trial ending soon)
+                if (newDuration === 60) {
+                    addNotification({
+                        title: 'Trial Ending Soon',
+                        body: 'Your 1.5 minute free trial will end in 30 seconds.',
+                        type: 'system'
+                    });
+                }
+
+                // Check trial end at 90 seconds
+                if (newDuration === TRIAL_SECONDS) {
+                    setTrialEnded(true);
+                    handleTrialEnd();
+                }
+
+                return newDuration;
+            });
         }, 1000);
 
         // Initialize local stream for preview
@@ -28,11 +55,54 @@ export default function CallPanel({ callState, onEnd }) {
 
         return () => {
             clearInterval(timerRef.current);
+            if (deductionRef.current) clearInterval(deductionRef.current);
             if (localVideoRef.current?.srcObject) {
                 localVideoRef.current.srcObject.getTracks().forEach(t => t.stop());
             }
         };
     }, [callState]);
+
+    const handleTrialEnd = async () => {
+        // If current user is the one paying (the one who initiated or whoever we decide is the customer)
+        if (!user || user.tokens < COST_PER_MINUTE) {
+            addNotification({
+                title: 'Call Ended',
+                body: 'Insufficient tokens to continue the call after the trial.',
+                type: 'error'
+            });
+            handleEnd();
+            return;
+        }
+
+        // Start periodic deduction
+        setIsPaying(true);
+        startDeduction();
+    };
+
+    const startDeduction = () => {
+        const deduct = async () => {
+            const success = await spendTokens(
+                COST_PER_MINUTE,
+                callState.fromGuestId || callState.targetGuestId, // Receiver
+                'call_payment',
+                'Payment for ongoing video call'
+            );
+
+            if (!success) {
+                addNotification({
+                    title: 'Call Terminated',
+                    body: 'Your token balance is empty. Please recharge.',
+                    type: 'error'
+                });
+                handleEnd();
+            }
+        };
+
+        // First deduction immediate
+        deduct();
+        // Subsequent deductions every 60 seconds
+        deductionRef.current = setInterval(deduct, 60000);
+    };
 
     const formatDuration = (s) => {
         const mins = Math.floor(s / 60).toString().padStart(2, '0');

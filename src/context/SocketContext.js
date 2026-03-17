@@ -127,6 +127,22 @@ export function SocketProvider({ children }) {
                 const mergedUsers = [...realUsers, ...allBots];
                 triggerEvent('online-users-list', { users: mergedUsers });
                 triggerEvent('all-online-users', { users: mergedUsers });
+
+                const activeStreams = realUsers.filter(u => u.stream).map(u => ({
+                    ...u.stream,
+                    streamerId: u.guestId,
+                    streamerName: u.name,
+                    viewerCount: u.stream.viewerCount || 0
+                }));
+                const mockStreams = allBots.slice(0, 3).map((b, i) => ({
+                    id: `mock_stream_${b.guestId}`,
+                    title: `${b.name} is live!`,
+                    category: ['Chat', 'Music', 'Gaming'][i],
+                    streamerId: b.guestId,
+                    streamerName: b.name,
+                    viewerCount: 25 + i * 12
+                }));
+                triggerEvent('stream-list-update', { streams: [...activeStreams, ...mockStreams] });
             })
             .on('broadcast', { event: 'global-event' }, (payload) => {
                 const { type, data, targetGuestId } = payload.payload;
@@ -142,6 +158,39 @@ export function SocketProvider({ children }) {
                         conversationId: data.conversationId,
                     });
                 }
+                
+                if (type === 'viewer-joined' && userRef.current.stream?.id === data.streamId) {
+                    userRef.current.stream.viewerCount = (userRef.current.stream.viewerCount || 0) + 1;
+                    channelRef.current.track(userRef.current);
+                    channelRef.current.send({
+                        type: 'broadcast', event: 'global-event', payload: {
+                            type: 'stream-viewer-count',
+                            data: { streamId: data.streamId, count: userRef.current.stream.viewerCount }
+                        }
+                    });
+                    triggerEvent('stream-viewer-count', { streamId: data.streamId, count: userRef.current.stream.viewerCount });
+                }
+                if (type === 'viewer-left' && userRef.current.stream?.id === data.streamId) {
+                    userRef.current.stream.viewerCount = Math.max(0, (userRef.current.stream.viewerCount || 0) - 1);
+                    channelRef.current.track(userRef.current);
+                    channelRef.current.send({
+                        type: 'broadcast', event: 'global-event', payload: {
+                            type: 'stream-viewer-count',
+                            data: { streamId: data.streamId, count: userRef.current.stream.viewerCount }
+                        }
+                    });
+                    triggerEvent('stream-viewer-count', { streamId: data.streamId, count: userRef.current.stream.viewerCount });
+                }
+                if (type === 'stream-chat') {
+                    triggerEvent('stream-new-chat', data);
+                }
+                if (type === 'stream-viewer-count') {
+                    triggerEvent('stream-viewer-count', data);
+                }
+                if (type === 'stream-ended') {
+                    triggerEvent('stream-ended', data);
+                }
+
                 triggerEvent(type, data);
             })
             .subscribe(async (status) => {
@@ -212,6 +261,58 @@ export function SocketProvider({ children }) {
                     const mergedUsers = [...realUsers, ...bots];
                     const filtered = mergedUsers.filter(u => u.name.toLowerCase().includes(q) && u.guestId !== userRef.current.guestId);
                     triggerEvent('search-results', { results: filtered });
+                } else if (event === 'start-stream') {
+                    const streamId = `stream_${Date.now()}`;
+                    const newStream = { id: streamId, title: data.title, category: data.category, startedAt: Date.now(), viewerCount: 0 };
+                    userRef.current.stream = newStream;
+                    channel.track(userRef.current);
+                    setTimeout(() => triggerEvent('stream-started', { stream: { ...newStream, streamerName: userRef.current.name } }), 100);
+                } else if (event === 'stop-stream') {
+                    if (userRef.current.stream) {
+                        const streamId = userRef.current.stream.id;
+                        userRef.current.stream = null;
+                        channel.track(userRef.current);
+                        channel.send({ type: 'broadcast', event: 'global-event', payload: { type: 'stream-ended', data: { streamId: streamId } } });
+                    }
+                } else if (event === 'join-stream') {
+                    channel.send({ type: 'broadcast', event: 'global-event', payload: { type: 'viewer-joined', data: { streamId: data.streamId } } });
+                    const state = channel.presenceState();
+                    const realUsers = Object.values(state).map(arr => arr[0]);
+                    const streamer = realUsers.find(u => u.stream?.id === data.streamId);
+                    
+                    if (streamer) {
+                        setTimeout(() => triggerEvent('stream-joined', { 
+                            stream: { ...streamer.stream, streamerName: streamer.name, streamerId: streamer.guestId }, messages: [] 
+                        }), 100);
+                    } else if (data.streamId.startsWith('mock_stream_')) {
+                        const botGuestId = data.streamId.replace('mock_stream_', '');
+                        const bot = bots.find(b => b.guestId === botGuestId);
+                        if (bot) {
+                            setTimeout(() => triggerEvent('stream-joined', { 
+                                stream: { id: data.streamId, title: `${bot.name} is live!`, category: 'Chat', streamerName: bot.name, streamerId: bot.guestId, viewerCount: 25 }, messages: [] 
+                            }), 100);
+                        }
+                    }
+                } else if (event === 'leave-stream') {
+                    channel.send({ type: 'broadcast', event: 'global-event', payload: { type: 'viewer-left', data: { streamId: data.streamId } } });
+                } else if (event === 'stream-chat') {
+                    const chatMsg = { streamId: data.streamId, message: { user: userRef.current.name, text: data.text, isGift: data.type === 'gift' } };
+                    channel.send({ type: 'broadcast', event: 'global-event', payload: { type: 'stream-chat', data: chatMsg } });
+                    triggerEvent('stream-new-chat', chatMsg);
+                    
+                    if (data.streamId.startsWith('mock_stream_')) {
+                        setTimeout(() => {
+                            const botGuestId = data.streamId.replace('mock_stream_', '');
+                            const bot = bots.find(b => b.guestId === botGuestId);
+                            triggerEvent('stream-new-chat', { streamId: data.streamId, message: { user: bot?.name || 'Streamer', text: 'Thanks for the message!', isGift: false } });
+                        }, 1500);
+                    }
+                } else if (event === 'get-streams') {
+                    const state = channel.presenceState();
+                    const realUsers = Object.values(state).map(arr => arr[0]);
+                    const activeStreams = realUsers.filter(u => u.stream).map(u => ({ ...u.stream, streamerId: u.guestId, streamerName: u.name, viewerCount: u.stream.viewerCount || 0 }));
+                    const mockStreams = bots.slice(0, 3).map((b, i) => ({ id: `mock_stream_${b.guestId}`, title: `${b.name} is live!`, category: ['Chat', 'Music', 'Gaming'][i], streamerId: b.guestId, streamerName: b.name, viewerCount: 25 + i * 12 }));
+                    setTimeout(() => triggerEvent('stream-list-update', { streams: [...activeStreams, ...mockStreams] }), 100);
                 } else if (['call-incoming', 'call-ended', 'call-offer', 'call-answer', 'ice-candidate', 'dm-message', 'dm-typing', 'dm-stop-typing', 'private-typing', 'private-stop-typing', 'private-chat-ended', 'find-random', 'cancel-random', 'room-users', 'user-typing', 'user-stop-typing'].includes(event)) {
                     channel.send({
                         type: 'broadcast',
@@ -293,7 +394,8 @@ export function SocketProvider({ children }) {
             name: authProfile?.display_name || authProfile?.name || lsProfile?.name || authUser?.email?.split('@')[0] || user?.name,
             gender: authProfile?.gender || lsProfile?.gender || user?.gender || '',
             age: authProfile?.age || lsProfile?.age || user?.age || '',
-            avatar: authProfile?.avatar_url || authProfile?.avatar || lsProfile?.avatar || user?.avatar || ''
+            avatar: authProfile?.avatar_url || authProfile?.avatar || lsProfile?.avatar || user?.avatar || '',
+            tokens: authProfile?.tokens || 0
         };
 
         setUser(updatedUser);
@@ -330,17 +432,66 @@ export function SocketProvider({ children }) {
     const updateProfile = useCallback((p) => {
         localStorage.setItem('coupchat-profile', JSON.stringify(p));
         localStorage.setItem('coupchat-guestName', p.name);
-        const newUser = { ...user, name: p.name, gender: p.gender, age: p.age, avatar: p.avatar };
+        const newUser = { ...user, name: p.name, gender: p.gender, age: p.age, avatar: p.avatar, tokens: p.tokens || user?.tokens || 0 };
         setUser(newUser);
         if (channelRef.current && channelRef.current.state === 'joined') {
             channelRef.current.track(newUser);
         }
     }, [user]);
 
+    const spendTokens = useCallback(async (amount, receiverId, type = 'call_payment', description = '') => {
+        if (!user || user.tokens < amount) return false;
+
+        try {
+            // 1. Update sender's tokens in DB
+            const { error: senderError } = await supabase
+                .from('profiles')
+                .update({ tokens: user.tokens - amount })
+                .eq('guest_id', user.guestId);
+
+            if (senderError) throw senderError;
+
+            // 2. Update receiver's tokens in DB (earnings)
+            // Note: In a real app, this should be a database function/RPC for atomicity
+            const { data: receiverData } = await supabase
+                .from('profiles')
+                .select('tokens')
+                .eq('guest_id', receiverId)
+                .single();
+
+            if (receiverData) {
+                await supabase
+                    .from('profiles')
+                    .update({ tokens: (receiverData.tokens || 0) + amount })
+                    .eq('guest_id', receiverId);
+            }
+
+            // 3. Log transaction
+            await supabase.from('token_transactions').insert({
+                user_id: authUser?.id,
+                sender_id: user.guestId,
+                receiver_id: receiverId,
+                amount: amount,
+                type: type,
+                description: description
+            });
+
+            // 4. Update local state
+            const newUser = { ...user, tokens: user.tokens - amount };
+            setUser(newUser);
+            userRef.current = newUser;
+
+            return true;
+        } catch (err) {
+            console.error('Failed to spend tokens:', err);
+            return false;
+        }
+    }, [user, authUser]);
+
     return (
         <SocketContext.Provider value={{
             socket, connected, onlineCount, user, rooms, setRooms,
-            updateName, updateProfile,
+            updateName, updateProfile, spendTokens,
             notifications, addNotification, dismissNotification,
             conversations, setConversations, totalUnread, setTotalUnread,
         }}>

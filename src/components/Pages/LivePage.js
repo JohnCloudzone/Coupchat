@@ -2,12 +2,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '@/context/SocketContext';
+import { useNavigation } from '@/app/ClientLayout';
 
 const CATEGORIES = ['All', 'Popular', 'Chat', 'Gaming', 'Music', 'Lifestyle', 'Creative', 'Tech'];
 
 export default function LivePage() {
     const router = useRouter();
-    const { socket, user } = useSocket();
+    const { onNavigate } = useNavigation();
+    const { socket, user, spendTokens, addNotification } = useSocket();
     const [verified, setVerified] = useState(false);
     const [category, setCategory] = useState('All');
     const [liveStreams, setLiveStreams] = useState([]);
@@ -21,6 +23,7 @@ export default function LivePage() {
     const [streamCategory, setStreamCategory] = useState('Chat');
     const [viewerCount, setViewerCount] = useState(0);
     const [streamDuration, setStreamDuration] = useState(0);
+    const [earnings, setEarnings] = useState(0);
     const videoRef = useRef(null);
     const localStreamRef = useRef(null);
     const durationRef = useRef(null);
@@ -158,6 +161,26 @@ export default function LivePage() {
         setChatInput('');
     };
 
+    const sendGift = async (amount) => {
+        if (!socket || !activeStream) return;
+        if (!user || user.tokens < amount) {
+            if (confirm('Insufficient tokens. Would you like to recharge?')) {
+                onNavigate('recharge');
+            }
+            return;
+        }
+
+        const success = await spendTokens(amount, activeStream.streamerId || 'system', 'gift', `Gift for ${activeStream.title}`);
+        if (success) {
+            socket.emit('stream-chat', {
+                streamId: activeStream.id,
+                text: `🎁 Sent ${amount} tokens as a gift!`,
+                type: 'gift'
+            });
+            addNotification({ title: 'Gift Sent!', body: `You sent ${amount} tokens to ${activeStream.streamerName}`, type: 'success' });
+        }
+    };
+
     const formatDuration = (secs) => {
         const m = Math.floor(secs / 60).toString().padStart(2, '0');
         const s = (secs % 60).toString().padStart(2, '0');
@@ -256,8 +279,10 @@ export default function LivePage() {
                         </div>
                         <div>
                             <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{myStream.title}</h3>
-                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                                👁 {viewerCount} viewers · ⏱ {formatDuration(streamDuration)}
+                            <p className="text-[10px] flex gap-2" style={{ color: 'var(--text-muted)' }}>
+                                <span>👁 {viewerCount} viewers</span>
+                                <span>⏱ {formatDuration(streamDuration)}</span>
+                                <span className="text-[var(--accent)] font-bold">💰 {earnings} tokens earned</span>
                             </p>
                         </div>
                     </div>
@@ -324,6 +349,7 @@ export default function LivePage() {
                             </p>
                         </div>
                     </div>
+                    <button onClick={() => setCategory('Gifts')} className="btn-glow px-3 py-1.5 rounded-xl text-[10px] font-bold">Support Streamer</button>
                 </div>
 
                 <div className="flex-1 flex flex-col md:flex-row">
@@ -362,6 +388,19 @@ export default function LivePage() {
                                 style={{ color: 'var(--text-primary)' }} />
                             <button onClick={sendStreamChat} className="px-3 py-2 rounded-lg btn-glow text-xs">Send</button>
                         </div>
+                        {/* Gifting Bar */}
+                        <div className="p-2 border-t border-[var(--border)] bg-[var(--bg-tertiary)] bg-opacity-30">
+                            <div className="flex justify-between gap-1">
+                                {[10, 50, 100, 500].map(amt => (
+                                    <button key={amt} onClick={() => sendGift(amt)}
+                                        className="flex-1 py-1.5 rounded-lg glass glass-hover text-[10px] font-bold flex flex-col items-center gap-0.5"
+                                        style={{ color: 'var(--text-primary)' }}>
+                                        <span>🪙</span>
+                                        {amt}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -389,7 +428,7 @@ export default function LivePage() {
                     {CATEGORIES.map(cat => (
                         <button key={cat} onClick={() => setCategory(cat)}
                             className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all
-                      ${category === cat ? 'btn-glow' : 'glass glass-hover'}`}
+                          ${category === cat ? 'btn-glow' : 'glass glass-hover'}`}
                             style={category !== cat ? { color: 'var(--text-secondary)' } : {}}>
                             {cat}
                         </button>

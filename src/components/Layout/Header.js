@@ -1,9 +1,11 @@
 'use client';
 import { useSocket } from '@/context/SocketContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useNavigation } from '@/app/ClientLayout';
 
 export default function Header({ currentPage, room, onMenuToggle }) {
-    const { onlineCount, connected, totalUnread } = useSocket();
+    const { onlineCount, connected, totalUnread, user } = useSocket();
+    const { onNavigate } = useNavigation();
     const { theme, setTheme, themes } = useTheme();
 
     const getTitle = () => {
@@ -42,24 +44,35 @@ export default function Header({ currentPage, room, onMenuToggle }) {
                 )}
             </div>
 
-            <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--bg-tertiary)]">
-                    <div className="pulse-dot" style={{ width: '6px', height: '6px' }} />
-                    <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{onlineCount.toLocaleString()}</span>
+            <div className="flex items-center gap-2">
+                {/* Token Balance */}
+                <button
+                    onClick={() => onNavigate('recharge')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl glass glass-hover border border-[var(--border)] transition-all hover:scale-105"
+                >
+                    <span className="text-xs font-bold" style={{ color: 'var(--accent)' }}>{user?.tokens || 0}</span>
+                    <span className="text-[10px]">🪙</span>
+                </button>
+
+                <div className="flex items-center gap-3">
+                    <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--bg-tertiary)]">
+                        <div className="pulse-dot" style={{ width: '6px', height: '6px' }} />
+                        <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{onlineCount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center gap-1 p-1 rounded-xl bg-[var(--bg-tertiary)]">
+                        {themes.map(t => (
+                            <button key={t.id} onClick={() => setTheme(t.id)}
+                                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200
+                          ${theme === t.id ? 'scale-110 shadow-lg' : 'opacity-60 hover:opacity-100'}`}
+                                title={t.name}>
+                                <div className={`w-4 h-4 rounded-full border-2 ${theme === t.id ? 'border-white' : 'border-transparent'}`}
+                                    style={{ background: t.color }} />
+                            </button>
+                        ))}
+                    </div>
+                    <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}
+                        title={connected ? 'Connected' : 'Disconnected'} />
                 </div>
-                <div className="flex items-center gap-1 p-1 rounded-xl bg-[var(--bg-tertiary)]">
-                    {themes.map(t => (
-                        <button key={t.id} onClick={() => setTheme(t.id)}
-                            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200
-                      ${theme === t.id ? 'scale-110 shadow-lg' : 'opacity-60 hover:opacity-100'}`}
-                            title={t.name}>
-                            <div className={`w-4 h-4 rounded-full border-2 ${theme === t.id ? 'border-white' : 'border-transparent'}`}
-                                style={{ background: t.color }} />
-                        </button>
-                    ))}
-                </div>
-                <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}
-                    title={connected ? 'Connected' : 'Disconnected'} />
             </div>
         </header>
     );
