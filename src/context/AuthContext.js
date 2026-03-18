@@ -15,13 +15,13 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         let isMounted = true;
         
-        // Safety timeout: force authLoading to false after 5 seconds
+        // Safety timeout: force authLoading to false after 3 seconds
         const safetyTimeout = setTimeout(() => {
             if (isMounted) {
                 console.warn('[CoupChat Auth] Safety timeout — forcing loading to finish');
                 setAuthLoading(false);
             }
-        }, 5000);
+        }, 3000);
 
         const checkAuth = async () => {
             try {

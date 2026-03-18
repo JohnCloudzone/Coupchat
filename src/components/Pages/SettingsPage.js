@@ -9,7 +9,7 @@ export default function SettingsPage() {
     const { user, updateName, updateProfile } = useSocket();
     const { onNavigate, onZoom } = useNavigation();
     const { theme, setTheme, themes } = useTheme();
-    const { authUser, isGuest, uploadAvatar, signOut } = useAuth();
+    const { authUser, isGuest, uploadAvatar, signOut, updateProfileData } = useAuth();
     const [displayName, setDisplayName] = useState('');
     const [saved, setSaved] = useState(false);
     const [notifications, setNotifications] = useState(true);
@@ -36,16 +36,30 @@ export default function SettingsPage() {
         } catch (e) { }
     }, []);
 
-    const saveName = () => {
+    const saveName = async () => {
         if (displayName.trim()) {
-            updateName(displayName.trim());
-            // Also update the full profile so sidebar/header get the new name immediately
+            const trimmedName = displayName.trim();
+            // Update local state immediately for UI
+            updateName(trimmedName);
             updateProfile({
-                name: displayName.trim(),
+                name: trimmedName,
                 gender: user?.gender || '',
                 age: user?.age || '',
                 avatar: avatarUrl || user?.avatar || '',
             });
+            // Persist to Supabase database for registered users
+            if (authUser && updateProfileData) {
+                try {
+                    await updateProfileData({
+                        name: trimmedName,
+                        gender: user?.gender || '',
+                        age: user?.age || '',
+                        avatar: avatarUrl || user?.avatar || '',
+                    });
+                } catch (e) {
+                    console.error('Failed to save profile to DB:', e);
+                }
+            }
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         }
@@ -69,6 +83,15 @@ export default function SettingsPage() {
                 age: user?.age || '',
                 avatar: url,
             });
+            // Also persist the full profile to DB (avatar_url + current name)
+            if (authUser && updateProfileData) {
+                await updateProfileData({
+                    name: user?.name || displayName,
+                    gender: user?.gender || '',
+                    age: user?.age || '',
+                    avatar: url,
+                });
+            }
         } catch (err) {
             console.error('Upload failed:', err);
             alert('Upload failed. Please try again.');
