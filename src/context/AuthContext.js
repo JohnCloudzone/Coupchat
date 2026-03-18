@@ -27,8 +27,11 @@ export function AuthProvider({ children }) {
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
                 setAuthUser(session.user);
-                await loadProfile(session.user.id);
+                await loadProfile(session.user);
                 setAuthReady(true);
+            } else {
+                // No session and not guest — still need to stop loading
+                setAuthReady(false);
             }
             setAuthLoading(false);
         };
@@ -44,7 +47,7 @@ export function AuthProvider({ children }) {
                 // Clean up guest data that might interfere
                 localStorage.removeItem('coupchat-guestName');
                 localStorage.removeItem('coupchat-profile');
-                await loadProfile(session.user.id);
+                await loadProfile(session.user);
                 setAuthReady(true);
             } else if (event === 'SIGNED_OUT') {
                 setAuthUser(null);
@@ -60,7 +63,15 @@ export function AuthProvider({ children }) {
     }, []);
 
     // Load or create a profile from Supabase
-    const loadProfile = async (authId) => {
+    const loadProfile = async (authUserObj) => {
+        const authId = authUserObj.id;
+        // Extract display name from OAuth metadata or email
+        const metaName = authUserObj.user_metadata?.full_name 
+            || authUserObj.user_metadata?.name 
+            || authUserObj.user_metadata?.display_name
+            || authUserObj.email?.split('@')[0]
+            || 'User';
+        const metaAvatar = authUserObj.user_metadata?.avatar_url || authUserObj.user_metadata?.picture || '';
         try {
             const { data, error } = await supabase
                 .from('profiles')
@@ -69,15 +80,24 @@ export function AuthProvider({ children }) {
                 .single();
 
             if (data) {
+                // If profile still has default "New User" name, update it with OAuth data
+                const needsUpdate = data.display_name === 'New User' && metaName !== 'User';
+                if (needsUpdate) {
+                    const updates = { display_name: metaName };
+                    if (metaAvatar && !data.avatar_url) updates.avatar_url = metaAvatar;
+                    await supabase.from('profiles').update(updates).eq('auth_id', authId);
+                    data.display_name = metaName;
+                    if (metaAvatar && !data.avatar_url) data.avatar_url = metaAvatar;
+                }
                 setProfile(data);
                 // Sync to localStorage for SocketContext compatibility
                 localStorage.setItem('coupchat-guestId', data.guest_id || `user_${authId.substring(0, 8)}`);
-                localStorage.setItem('coupchat-guestName', data.display_name || 'User');
+                localStorage.setItem('coupchat-guestName', data.display_name || metaName);
                 localStorage.setItem('coupchat-profile', JSON.stringify({
-                    name: data.display_name,
+                    name: data.display_name || metaName,
                     gender: data.gender || '',
                     age: data.age || '',
-                    avatar: data.avatar_url || '',
+                    avatar: data.avatar_url || metaAvatar || '',
                 }));
             } else {
                 // Create a new profile for this auth user
@@ -87,14 +107,21 @@ export function AuthProvider({ children }) {
                     .insert({
                         auth_id: authId,
                         guest_id: guestId,
-                        display_name: 'New User',
+                        display_name: metaName,
+                        avatar_url: metaAvatar || null,
                         is_guest: false,
                     })
                     .select()
                     .single();
                 setProfile(newProfile);
                 localStorage.setItem('coupchat-guestId', guestId);
-                localStorage.setItem('coupchat-guestName', 'New User');
+                localStorage.setItem('coupchat-guestName', metaName);
+                localStorage.setItem('coupchat-profile', JSON.stringify({
+                    name: metaName,
+                    gender: '',
+                    age: '',
+                    avatar: metaAvatar || '',
+                }));
             }
         } catch (e) {
             console.error('Error loading profile:', e);

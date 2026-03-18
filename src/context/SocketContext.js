@@ -253,14 +253,15 @@ export function SocketProvider({ children }) {
                     const state = channel.presenceState();
                     const realUsers = Object.values(state).map(arr => arr[0]);
                     const mergedUsers = [...realUsers, ...bots];
-                    triggerEvent(event === 'get-online-users' ? 'online-users-list' : 'all-online-users', { users: mergedUsers });
+                    // Use setTimeout so `.once()` listener registered AFTER emit can receive the event
+                    setTimeout(() => triggerEvent(event === 'get-online-users' ? 'online-users-list' : 'all-online-users', { users: mergedUsers }), 50);
                 } else if (event === 'search-users') {
                     const state = channel.presenceState();
                     const q = (data.query || '').toLowerCase();
                     const realUsers = Object.values(state).map(arr => arr[0]);
                     const mergedUsers = [...realUsers, ...bots];
                     const filtered = mergedUsers.filter(u => u.name.toLowerCase().includes(q) && u.guestId !== userRef.current.guestId);
-                    triggerEvent('search-results', { results: filtered });
+                    setTimeout(() => triggerEvent('search-results', { results: filtered }), 50);
                 } else if (event === 'start-stream') {
                     const streamId = `stream_${Date.now()}`;
                     const newStream = { id: streamId, title: data.title, category: data.category, startedAt: Date.now(), viewerCount: 0 };
