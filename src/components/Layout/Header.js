@@ -29,8 +29,13 @@ export default function Header({ currentPage, room, onMenuToggle }) {
     };
 
     const handleSignOut = async () => {
-        await signOut();
-        window.location.reload();
+        try {
+            await signOut();
+        } catch (e) {
+            console.error('Sign out error:', e);
+        }
+        // Force redirect to root — this always works
+        window.location.href = '/';
     };
 
     return (

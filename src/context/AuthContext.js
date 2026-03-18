@@ -13,27 +13,50 @@ export function AuthProvider({ children }) {
 
     // Check if user has chosen guest or registered login
     useEffect(() => {
-        const checkAuth = async () => {
-            // Check for guest mode
-            const guestMode = localStorage.getItem('coupchat-auth-mode');
-            if (guestMode === 'guest') {
-                setIsGuest(true);
-                setAuthReady(true);
+        let isMounted = true;
+        
+        // Safety timeout: force authLoading to false after 5 seconds
+        const safetyTimeout = setTimeout(() => {
+            if (isMounted) {
+                console.warn('[CoupChat Auth] Safety timeout — forcing loading to finish');
                 setAuthLoading(false);
-                return;
             }
+        }, 5000);
 
-            // Check Supabase auth session
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
-                setAuthUser(session.user);
-                await loadProfile(session.user);
-                setAuthReady(true);
-            } else {
-                // No session and not guest — still need to stop loading
-                setAuthReady(false);
+        const checkAuth = async () => {
+            try {
+                // Check for guest mode
+                const guestMode = localStorage.getItem('coupchat-auth-mode');
+                if (guestMode === 'guest') {
+                    setIsGuest(true);
+                    setAuthReady(true);
+                    setAuthLoading(false);
+                    return;
+                }
+
+                // Check Supabase auth session
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) {
+                    console.error('[CoupChat Auth] getSession error:', error);
+                    setAuthLoading(false);
+                    return;
+                }
+                if (session?.user) {
+                    setAuthUser(session.user);
+                    await loadProfile(session.user);
+                    setAuthReady(true);
+                } else {
+                    // No session — clear any stale registered mode
+                    if (guestMode === 'registered') {
+                        localStorage.removeItem('coupchat-auth-mode');
+                    }
+                    setAuthReady(false);
+                }
+            } catch (e) {
+                console.error('[CoupChat Auth] checkAuth error:', e);
+            } finally {
+                if (isMounted) setAuthLoading(false);
             }
-            setAuthLoading(false);
         };
 
         checkAuth();
@@ -44,22 +67,36 @@ export function AuthProvider({ children }) {
                 setAuthUser(session.user);
                 setIsGuest(false);
                 localStorage.setItem('coupchat-auth-mode', 'registered');
-                // Clean up guest data that might interfere
                 localStorage.removeItem('coupchat-guestName');
                 localStorage.removeItem('coupchat-profile');
-                await loadProfile(session.user);
+                try {
+                    await loadProfile(session.user);
+                } catch (e) {
+                    console.error('[CoupChat Auth] loadProfile error on sign-in:', e);
+                }
                 setAuthReady(true);
+                setAuthLoading(false);
             } else if (event === 'SIGNED_OUT') {
                 setAuthUser(null);
                 setProfile(null);
                 setIsGuest(false);
                 localStorage.removeItem('coupchat-auth-mode');
+                localStorage.removeItem('coupchat-profile');
+                localStorage.removeItem('coupchat-guestId');
+                localStorage.removeItem('coupchat-guestName');
                 setAuthReady(false);
+                setAuthLoading(false);
+            } else if (event === 'INITIAL_SESSION') {
+                // This fires on mount — checkAuth already handles it, just ensure loading stops
+                if (isMounted) setAuthLoading(false);
             }
-            setAuthLoading(false);
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            isMounted = false;
+            clearTimeout(safetyTimeout);
+            subscription.unsubscribe();
+        };
     }, []);
 
     // Load or create a profile from Supabase
@@ -176,15 +213,22 @@ export function AuthProvider({ children }) {
 
     // Sign out
     const signOut = useCallback(async () => {
-        await supabase.auth.signOut();
+        try {
+            await supabase.auth.signOut();
+        } catch (e) {
+            console.error('[CoupChat Auth] signOut error:', e);
+        }
+        // Always clear local state regardless of Supabase response
         setAuthUser(null);
         setProfile(null);
         setIsGuest(false);
+        setAuthReady(false);
+        setAuthLoading(false);
         localStorage.removeItem('coupchat-auth-mode');
         localStorage.removeItem('coupchat-profile');
         localStorage.removeItem('coupchat-guestId');
         localStorage.removeItem('coupchat-guestName');
-        setAuthReady(false);
+        localStorage.removeItem('coupchat-age-verified');
     }, []);
 
     // Update profile in Supabase
